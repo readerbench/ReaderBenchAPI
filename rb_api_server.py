@@ -1,7 +1,7 @@
 from flask import Flask
 from flask_cors import CORS
-import rest.keywords.keywords as keywords
-import rest.textual_complexity as textual_complexity
+import rb_api.keywords.keywords as keywords
+import rb_api.textual_complexity.textual_complexity as textual_complexity
 
 app = Flask(__name__)
 CORS(app)
