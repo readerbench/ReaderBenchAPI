@@ -16,9 +16,9 @@ def amocPost():
     params = json.loads(request.get_data())
     text = params.get("text")
     semantic_model = params.get("semanticModel")
-    min_activation_threshold = params.get("minActivationThreshold")
-    max_active_concepts = params.get("maxActiveConcepts")
-    max_semantic_expand = params.get("maxSemanticExpand")
+    min_activation_threshold = float(params.get("minActivationThreshold"))
+    max_active_concepts = int(params.get("maxActiveConcepts"))
+    max_semantic_expand = int(params.get("maxSemanticExpand"))
 
     semantic_models = [Word2Vec(semantic_model, Lang.EN)]
     cms = ComprehensionModelService(semantic_models, Lang.EN,
@@ -27,4 +27,4 @@ def amocPost():
     result = cms.run(text)
     amoc_response = AmocResponse(result, "", True)
 
-    return amoc_response
+    return amoc_response.toJSON()
