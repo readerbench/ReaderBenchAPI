@@ -16,7 +16,7 @@ from rb.core.word import Word
 from rb.core.lang import Lang
 from typing import List, Dict
 SemanticModels = List[VectorModel]
-ListOfActivations = List[Dict(Word, WordActivation)]
+ListOfActivations = List[Dict[Word, WordActivation]]
 
 
 class ComprehensionModelService():
@@ -58,24 +58,24 @@ class ComprehensionModelService():
                 else:
                     tmg_node = TwoModeGraphNodeDTO(TwoModeGraphNodeTypeDTO.INFERRED, text, text)
                 tmg_node.active = node.active
-                tmg.node_list.append(tmg_node)
+                tmg.nodeList.append(tmg_node)
 
             for edge in current_graph.edge_list:
-                tmg_edge = TwoModeGraphEdgeDTO(edge.score, edge.node1.word.lemma, edge.node2.word.lemma)
-                tmg.edge_list.append(tmg_edge)
+                tmg_edge = TwoModeGraphEdgeDTO(edge.score, edge.node1.word.lemma, edge.node2.word.lemma, str(edge.edge_type.value) + 'Distance')
+                tmg.edgeList.append(tmg_edge)
             
             cm.save_scores(syntactic_indexer.get_cm_graph(CmNodeType.TextBased))
 
-            result.sentence_list.append(cm_sentence)
+            result.sentenceList.append(cm_sentence)
 
         history_keeper = cm.history_keeper
         for node in history_keeper.unique_word_list:
             if node.node_type == CmNodeType.TextBased:
-                result.word_list.append(self.get_cm_word_result(node, history_keeper.activation_history))
+                result.wordList.append(self.get_cm_word_result(node, history_keeper.activation_history))
             
         for node in history_keeper.unique_word_list:
             if node.node_type != CmNodeType.TextBased:
-                result.word_list.append(self.get_cm_word_result(node, history_keeper.activation_history))
+                result.wordList.append(self.get_cm_word_result(node, history_keeper.activation_history))
         
         return result
 
@@ -86,10 +86,10 @@ class ComprehensionModelService():
         for activation_map in activation_history:
             if node.word not in list(activation_map.keys()):
                 act_result = CMWordActivationResultDTO(0.0, False)
-                result.activation_list.append(act_result)
+                result.activationList.append(act_result)
             else:
                 word_activation = activation_map[node.word]
                 act_result = CMWordActivationResultDTO(word_activation.activation_value, word_activation.active)
-                result.activation_list.append(act_result)
+                result.activationList.append(act_result)
         
         return result
