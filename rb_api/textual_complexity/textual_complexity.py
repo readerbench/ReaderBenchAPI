@@ -23,7 +23,7 @@ def textualComplexityPost():
     dialogism = params.get('dialogism')
     bigrams = params.get('bigrams')
     text = params.get('text')
-    languageString = params.get('language')
+    languageString = params.get('language').upper()
     lang = Lang[languageString]
     lsa = params.get('lsa')
     lda = params.get('lda')
