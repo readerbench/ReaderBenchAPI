@@ -3,6 +3,8 @@ import json
 from rb.core.lang import Lang
 from rb_api.amoc.comprehension_model_service import ComprehensionModelService
 from rb.similarity.word2vec import Word2Vec
+from rb.similarity.lsa import LSA
+from rb.similarity.lda import LDA
 from rb_api.dto.amoc.amoc_response import AmocResponse
 
 app = Flask(__name__)
@@ -20,7 +22,7 @@ def amocPost():
     max_active_concepts = int(params.get("maxActiveConcepts"))
     max_semantic_expand = int(params.get("maxSemanticExpand"))
 
-    semantic_models = [Word2Vec(semantic_model, Lang.EN)]
+    semantic_models = [Word2Vec(semantic_model, Lang.EN), LDA(semantic_model, Lang.EN), LSA(semantic_model, Lang.EN)]
     cms = ComprehensionModelService(semantic_models, Lang.EN,
                                     min_activation_threshold, max_active_concepts, max_semantic_expand)
 

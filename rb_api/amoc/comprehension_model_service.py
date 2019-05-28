@@ -43,7 +43,7 @@ class ComprehensionModelService():
             current_syntactic_graph = syntactic_indexer.get_cm_graph(CmNodeType.TextBased)
             current_graph = cm.current_graph
 
-            current_graph.combine_with_syntactic_links(current_syntactic_graph, cm.semantic_models, cm.max_dictionary_expansion)
+            current_graph.combine_with_syntactic_links(current_syntactic_graph, sentence, cm.semantic_models, cm.max_dictionary_expansion)
 
             cm.current_graph = current_graph
             cm.apply_page_rank(index)
