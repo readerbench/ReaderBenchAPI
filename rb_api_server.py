@@ -3,6 +3,7 @@ from flask_cors import CORS
 import rb_api.keywords.keywords as keywords
 import rb_api.textual_complexity.textual_complexity as textual_complexity
 import rb_api.amoc.amoc as amoc
+import rb_api.text_similarity.text_similarity as text_similarity
 
 
 app = Flask(__name__)
@@ -36,6 +37,13 @@ def amocOption():
 def amocPost():
     return amoc.amocPost()
 
+@app.route("/api/v1/text-similarity", methods=['OPTIONS'])
+def textSimilarityOption():
+    return text_similarity.textSimilarityOption()
+
+@app.route("/api/v1/text-similarity", methods=['POST'])
+def textSimilarityPost():
+    return text_similarity.textSimilarityPost()
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=6006)
