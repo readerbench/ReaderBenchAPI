@@ -1,9 +1,9 @@
-from werkzeug.contrib.cache import MemcachedCache
+from werkzeug.contrib.cache import SimpleCache
 from rb.similarity.vector_model import VectorModelType, VectorModel
 from rb.similarity.word2vec import Word2Vec
 from rb.core.lang import Lang
 
-cache = MemcachedCache()
+cache = SimpleCache()
 
 
 def get_model(vtype: VectorModelType, name: str, lang: Lang, size: int = 300) -> VectorModel:
