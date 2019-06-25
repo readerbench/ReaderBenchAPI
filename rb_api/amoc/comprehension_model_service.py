@@ -39,8 +39,10 @@ class ComprehensionModelService():
         for index in range(cm.get_total_number_of_phrases()):
             sentence = cm.get_sentence_at_index(index)
 
-            syntactic_indexer = cm.get_syntactic_indexer_at_index(index)
-            current_syntactic_graph = syntactic_indexer.get_cm_graph(CmNodeType.TextBased)
+            # syntactic_indexer = cm.get_syntactic_indexer_at_index(index)
+            # current_syntactic_graph = syntactic_indexer.get_cm_graph(CmNodeType.TextBased)
+            # current_graph = cm.current_graph
+            current_syntactic_graph = cm.sentence_graphs[index]
             current_graph = cm.current_graph
 
             current_graph.combine_with_syntactic_links(current_syntactic_graph, sentence, cm.semantic_models, cm.max_dictionary_expansion)
@@ -64,7 +66,7 @@ class ComprehensionModelService():
                 tmg_edge = TwoModeGraphEdgeDTO(edge.score, edge.node1.word.lemma, edge.node2.word.lemma, str(edge.edge_type.value) + 'Distance')
                 tmg.edgeList.append(tmg_edge)
             
-            cm.save_scores(syntactic_indexer.get_cm_graph(CmNodeType.TextBased))
+            cm.save_scores(cm.sentence_graphs[index])
 
             result.sentenceList.append(cm_sentence)
 
