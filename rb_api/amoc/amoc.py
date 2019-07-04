@@ -23,12 +23,14 @@ def amocPost():
     min_activation_threshold = float(params.get("minActivationThreshold"))
     max_active_concepts = int(params.get("maxActiveConcepts"))
     max_semantic_expand = int(params.get("maxSemanticExpand"))
+    language_string = params.get('language')
+    lang = Lang[language_string]
 
-    w2v = cache.get_model(VectorModelType.WORD2VEC, semantic_model, Lang.EN)
-    lda = cache.get_model(VectorModelType.LDA, semantic_model, Lang.EN)
-    lsa = cache.get_model(VectorModelType.LSA, semantic_model, Lang.EN)
+    w2v = cache.get_model(VectorModelType.WORD2VEC, semantic_model, lang)
+    lda = cache.get_model(VectorModelType.LDA, semantic_model, lang)
+    lsa = cache.get_model(VectorModelType.LSA, semantic_model, lang)
     semantic_models = [w2v, lda, lsa]
-    cms = ComprehensionModelService(semantic_models, Lang.EN,
+    cms = ComprehensionModelService(semantic_models, lang,
                                     min_activation_threshold, max_active_concepts, max_semantic_expand)
 
     result = cms.run(text)
