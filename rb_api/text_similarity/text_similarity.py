@@ -1,5 +1,6 @@
 from flask import Flask, request
 import json
+from rb.utils.utils import str_to_lang
 from rb.core.text_element import TextElement
 from rb.core.lang import Lang
 from rb.complexity.index_category import IndexCategory
@@ -30,10 +31,10 @@ def textSimilarityPost():
     params = json.loads(request.get_data())
     corpus = params.get('corpus') if params.get(
         'corpus') != None else 'le_monde_small'
-    languageString = params.get('language').upper()
+    languageString = params.get('language')
+    lang = str_to_lang(languageString)
     texts = params.get('texts')
 
-    lang = Lang[languageString]
     vectorModels = []
     try:
         vectorModel = LSA(corpus, lang)
