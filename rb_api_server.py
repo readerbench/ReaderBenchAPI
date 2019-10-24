@@ -1,13 +1,18 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import rb_api.keywords.keywords as keywords
-import rb_api.textual_complexity.textual_complexity as textual_complexity
-import rb_api.amoc.amoc as amoc
-import rb_api.text_similarity.text_similarity as text_similarity
-from rb_api.text_extractor.universal_text_extractor import extract_raw_text
-from werkzeug import secure_filename
+import json
 import os
 import uuid
+
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+from rb.utils.utils import str_to_lang
+# from rb_api.text_extractor.universal_text_extractor import extract_raw_text
+from werkzeug import secure_filename
+
+import rb_api.amoc.amoc as amoc
+import rb_api.keywords.keywords as keywords
+import rb_api.text_similarity.text_similarity as text_similarity
+import rb_api.textual_complexity.textual_complexity as textual_complexity
+from rb_api.cna.graph_extractor import compute_graph
 
 app = Flask(__name__)
 CORS(app)
@@ -48,18 +53,31 @@ def textSimilarityOption():
 def textSimilarityPost():
     return text_similarity.textSimilarityPost()
 
+@app.route("/api/v1/cna-graph", methods=['OPTIONS'])
+def computeCnaGraphOption():
+    return ""
+
+@app.route("/api/v1/cna-graph", methods=['POST'])
+def computeCnaGraphPost():
+    params = json.loads(request.get_data())
+    text = params.get('text')
+    languageString = params.get('lang')
+    lang = str_to_lang(languageString)
+    models = params.get('models')
+    return compute_graph(text, lang, models)
+
 """ file should have proper extension, otherwise it will not work"""
-@app.route('/api/v1/extract_text', methods=['POST'])
-def extract_text():
-    f = request.files['file']
-    path_to_tmp_file = secure_filename(str(uuid.uuid4()) + f.filename)
-    f.save(path_to_tmp_file)
-    raw_text = extract_raw_text(path_to_tmp_file)
-    try:
-        os.remove(path_to_tmp_file)
-    except OSError:
-        pass
-    return jsonify(raw_text)
+# @app.route('/api/v1/extract_text', methods=['POST'])
+# def extract_text():
+#     f = request.files['file']
+#     path_to_tmp_file = secure_filename(str(uuid.uuid4()) + f.filename)
+#     f.save(path_to_tmp_file)
+#     raw_text = extract_raw_text(path_to_tmp_file)
+#     try:
+#         os.remove(path_to_tmp_file)
+#     except OSError:
+#         pass
+#     return jsonify(raw_text)
 
 
 if __name__ == "__main__":

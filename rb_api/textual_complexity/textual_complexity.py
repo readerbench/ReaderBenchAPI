@@ -8,7 +8,7 @@ from rb.complexity.index_category import IndexCategory
 from rb.complexity.complexity_index import compute_indices
 from rb.core.document import Document
 from rb.similarity.vector_model import VectorModelType, CorporaEnum, VectorModel
-from rb.similarity.vector_model_instance import VECTOR_MODELS
+from rb.similarity.vector_model_factory import VECTOR_MODELS
 from rb.cna.cna_graph import CnaGraph
 from rb_api.dto.textual_complexity.complexity_index_dto import ComplexityIndexDTO
 from rb_api.dto.textual_complexity.textual_complexity_data_dto import TextualComplexityDataDTO
