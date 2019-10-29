@@ -11,7 +11,7 @@ from rb.similarity.word2vec import Word2Vec
 
 
 def encode_element(element: TextElement, names: Dict[TextElement, str]):
-    result =  { "name": names[element] }
+    result =  { "name": names[element], "value": element.text, "type": element.depth }
     if not element.is_sentence():
         result["children"] = [encode_element(child, names) for child in element.components]
     return result
