@@ -5,7 +5,6 @@ import uuid
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from rb.utils.utils import str_to_lang
-# from rb_api.text_extractor.universal_text_extractor import extract_raw_text
 from werkzeug import secure_filename
 
 import rb_api.amoc.amoc as amoc
@@ -67,17 +66,18 @@ def computeCnaGraphPost():
     return compute_graph(text, lang, models)
 
 """ file should have proper extension, otherwise it will not work"""
-# @app.route('/api/v1/extract_text', methods=['POST'])
-# def extract_text():
-#     f = request.files['file']
-#     path_to_tmp_file = secure_filename(str(uuid.uuid4()) + f.filename)
-#     f.save(path_to_tmp_file)
-#     raw_text = extract_raw_text(path_to_tmp_file)
-#     try:
-#         os.remove(path_to_tmp_file)
-#     except OSError:
-#         pass
-#     return jsonify(raw_text)
+@app.route('/api/v1/extract_text', methods=['POST'])
+def extract_text():
+    from rb_api.text_extractor.universal_text_extractor import extract_raw_text 
+    f = request.files['file']
+    path_to_tmp_file = secure_filename(str(uuid.uuid4()) + f.filename)
+    f.save(path_to_tmp_file)
+    raw_text = extract_raw_text(path_to_tmp_file)
+    try:
+        os.remove(path_to_tmp_file)
+    except OSError:
+        pass
+    return jsonify(raw_text)
 
 
 if __name__ == "__main__":
