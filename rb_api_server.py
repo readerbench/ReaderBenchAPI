@@ -4,6 +4,7 @@ import rb_api.keywords.keywords as keywords
 import rb_api.textual_complexity.textual_complexity as textual_complexity
 import rb_api.amoc.amoc as amoc
 import rb_api.text_similarity.text_similarity as text_similarity
+import rb_api.mass_customization.mass_customization as mass_customization
 
 
 app = Flask(__name__)
@@ -44,6 +45,14 @@ def textSimilarityOption():
 @app.route("/api/v1/text-similarity", methods=['POST'])
 def textSimilarityPost():
     return text_similarity.textSimilarityPost()
+
+@app.route("/api/v1/mass-customization", methods=['OPTIONS'])
+def massCustomizationOption():
+    return mass_customization.massCustomizationOption()
+
+@app.route("/api/v1/mass-customization", methods=['POST'])
+def massCustomizationPost():
+    return mass_customization.massCustomizationPost()
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=6006)
