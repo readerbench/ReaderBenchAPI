@@ -1,10 +1,15 @@
 from flask import Flask, request
 import json
+import sys
 from rb.core.text_element import TextElement
 from rb.core.lang import Lang
+from rb.utils.utils import str_to_lang
 from rb.complexity.index_category import IndexCategory
 from rb.complexity.complexity_index import compute_indices
 from rb.core.document import Document
+from rb.similarity.vector_model import VectorModelType, CorporaEnum, VectorModel
+from rb.similarity.vector_model_factory import VECTOR_MODELS
+from rb.cna.cna_graph import CnaGraph
 from rb_api.dto.textual_complexity.complexity_index_dto import ComplexityIndexDTO
 from rb_api.dto.textual_complexity.textual_complexity_data_dto import TextualComplexityDataDTO
 from rb_api.dto.textual_complexity.textual_complexity_response import TextualComplexityResponse
@@ -23,16 +28,23 @@ def textualComplexityPost():
     dialogism = params.get('dialogism')
     bigrams = params.get('bigrams')
     text = params.get('text')
-    languageString = params.get('language').upper()
-    lang = Lang[languageString]
+    languageString = params.get('language')
+    lang = str_to_lang(languageString)
     lsa = params.get('lsa')
     lda = params.get('lda')
     w2v = params.get('w2v')
     threshold = params.get('threshold')
 
-    document = Document(lang, text)
-    # complexity = ComplexityIndex(lang, IndexCategory.SYNTAX, "syntax")
-    compute_indices(document)
+    if lang is Lang.RO:
+        vector_model = VECTOR_MODELS[lang][CorporaEnum.README][VectorModelType.WORD2VEC](
+            name=CorporaEnum.README.value, lang=lang)
+    elif lang is Lang.EN:
+        vector_model = VECTOR_MODELS[lang][CorporaEnum.COCA][VectorModelType.WORD2VEC](
+            name=CorporaEnum.COCA.value, lang=lang)
+
+    document = Document(lang=lang, text=text)
+    cna_graph = CnaGraph(doc=document, models=[vector_model])
+    compute_indices(doc=document, cna_graph=cna_graph)
 
     categoriesList = []
     complexityIndices = {}
