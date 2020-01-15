@@ -10,6 +10,7 @@ from werkzeug import secure_filename
 import rb_api.amoc.amoc as amoc
 import rb_api.keywords.keywords as keywords
 import rb_api.text_similarity.text_similarity as text_similarity
+import rb_api.mass_customization.mass_customization as mass_customization
 import rb_api.textual_complexity.textual_complexity as textual_complexity
 from rb_api.cna.graph_extractor import compute_graph
 
@@ -52,6 +53,14 @@ def textSimilarityOption():
 def textSimilarityPost():
     return text_similarity.textSimilarityPost()
 
+@app.route("/api/v1/mass-customization", methods=['OPTIONS'])
+def massCustomizationOption():
+    return mass_customization.massCustomizationOption()
+
+@app.route("/api/v1/mass-customization", methods=['POST'])
+def massCustomizationPost():
+    return mass_customization.massCustomizationPost()
+
 @app.route("/api/v1/cna-graph", methods=['OPTIONS'])
 def computeCnaGraphOption():
     return ""
@@ -78,7 +87,6 @@ def extract_text():
     except OSError:
         pass
     return jsonify(raw_text)
-
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=6006, threaded=True)
