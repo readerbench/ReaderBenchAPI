@@ -24,16 +24,12 @@ def textualComplexityOption():
 
 def textualComplexityPost():
     params = json.loads(request.get_data())
-    posTagging = params.get('pos-tagging')
-    dialogism = params.get('dialogism')
-    bigrams = params.get('bigrams')
     text = params.get('text')
     languageString = params.get('language')
     lang = str_to_lang(languageString)
-    lsa = params.get('lsa')
-    lda = params.get('lda')
-    w2v = params.get('w2v')
-    threshold = params.get('threshold')
+    # lsa = params.get('lsa')
+    # lda = params.get('lda')
+    # w2v = params.get('w2v')
 
     if lang is Lang.RO:
         vector_model = VECTOR_MODELS[lang][CorporaEnum.README][VectorModelType.WORD2VEC](
