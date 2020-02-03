@@ -20,14 +20,14 @@ CORS(app)
 @app.route("/api/v1/isalive")
 def hello():
     return "Alive"
-"""TODO"""
-# @app.route("/api/v1/keywords", methods=['OPTIONS'])
-# def keywordsOption():
-#     return keywords.keywordsOption()
 
-# @app.route("/api/v1/keywords", methods=['POST'])
-# def keywordsPost():
-#     return keywords.keywordsPost()
+@app.route("/api/v1/keywords", methods=['OPTIONS'])
+def keywordsOption():
+    return keywords.keywordsOption()
+
+@app.route("/api/v1/keywords", methods=['POST'])
+def keywordsPost():
+    return keywords.keywordsPost()
 
 @app.route("/api/v1/textual-complexity", methods=['OPTIONS'])
 def textualComplexityOption():
