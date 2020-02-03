@@ -41,6 +41,9 @@ def textualComplexityPost():
     elif lang is Lang.EN:
         vector_model = VECTOR_MODELS[lang][CorporaEnum.COCA][VectorModelType.WORD2VEC](
             name=CorporaEnum.COCA.value, lang=lang)
+    elif lang is Lang.ES:
+        vector_model = VECTOR_MODELS[lang][CorporaEnum.JOSE_ANTONIO][VectorModelType.WORD2VEC](
+            name=CorporaEnum.JOSE_ANTONIO.value, lang=lang)
 
     document = Document(lang=lang, text=text)
     cna_graph = CnaGraph(doc=document, models=[vector_model])
@@ -54,7 +57,8 @@ def textualComplexityPost():
         if (categoryName not in categoriesList):
             categoriesList.append(categoryName)
 
-        complexityIndexDTO = ComplexityIndexDTO(key.abbr + " (document)", value)
+        complexityIndexDTO = ComplexityIndexDTO(
+            key.abbr + " (document)", float(value))
         # complexityIndex[categoryName] = complexityIndexDTO
         if (not categoryName in complexityIndices):
             complexityIndices[categoryName] = []
@@ -66,7 +70,8 @@ def textualComplexityPost():
             if (categoryName not in categoriesList):
                 categoriesList.append(categoryName)
 
-            complexityIndexDTO = ComplexityIndexDTO(key.abbr + " (paragraph)", value)
+            complexityIndexDTO = ComplexityIndexDTO(
+                key.abbr + " (paragraph)", float(value))
             # complexityIndex[categoryName] = complexityIndexDTO
             if (not categoryName in complexityIndices):
                 complexityIndices[categoryName] = []
@@ -79,7 +84,8 @@ def textualComplexityPost():
                 if (categoryName not in categoriesList):
                     categoriesList.append(categoryName)
 
-                complexityIndexDTO = ComplexityIndexDTO(key.abbr + " (sentence)", value)
+                complexityIndexDTO = ComplexityIndexDTO(
+                    key.abbr + " (sentence)", float(value))
                 # complexityIndex[categoryName] = complexityIndexDTO
                 if (not categoryName in complexityIndices):
                     complexityIndices[categoryName] = []
