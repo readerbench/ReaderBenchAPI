@@ -1,6 +1,7 @@
 from flask import Flask, request
 import json
 from rb.core.lang import Lang
+from rb.utils.utils import str_to_lang
 from rb_api.amoc.comprehension_model_service import ComprehensionModelService
 from rb.similarity.vector_model import VectorModelType
 from rb.similarity.word2vec import Word2Vec
@@ -24,7 +25,7 @@ def amocPost():
     max_active_concepts = int(params.get("maxActiveConcepts"))
     max_semantic_expand = int(params.get("maxSemanticExpand"))
     language_string = params.get('language')
-    lang = Lang[language_string]
+    lang = str_to_lang(languageString)
 
     w2v = cache.get_model(VectorModelType.WORD2VEC, semantic_model, lang)
     lda = cache.get_model(VectorModelType.LDA, semantic_model, lang)
