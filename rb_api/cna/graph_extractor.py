@@ -45,5 +45,5 @@ def compute_graph(text: str, lang: Lang, models: List) -> str:
                 "target": names[b],
                 "weight": str(data["value"]),
             })
-    result["edges"] = edges
+    result["data"]["edges"] = edges
     return result
