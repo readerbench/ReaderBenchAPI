@@ -16,11 +16,11 @@ def encode_element(element: TextElement, names: Dict[TextElement, str]):
         result["children"] = [encode_element(child, names) for child in element.components]
     return result
 
-def compute_graph(text: str, lang: Lang, models: List) -> str:
-    doc = Document(lang=lang, text=text)
+def compute_graph(texts: List[str], lang: Lang, models: List) -> str:
+    docs = [Document(lang=lang, text=text) for text in texts]
     models = [create_vector_model(lang, VectorModelType.from_str(model["model"]), model["corpus"]) for model in models]
     models = [model for model in models if model is not None]
-    graph = CnaGraph(doc=doc, models=models)
+    graph = CnaGraph(docs=docs, models=models)
     paragraph_index = 1
     sentence_index = 1
     names = {}
@@ -33,7 +33,10 @@ def compute_graph(text: str, lang: Lang, models: List) -> str:
         elif node.is_sentence():
             names[node] = "Sentence {}".format(sentence_index)
             sentence_index += 1
-    result = {"data": encode_element(doc, names)}
+    result = {"data": {
+        "name": None, "value": None, "type": None, 
+        "children": [encode_element(doc, names) for doc in docs]}
+        }
     edges = {}
     for a, b, data in graph.graph.edges(data=True):
         if data["type"] is not EdgeType.ADJACENT and data["type"] is not EdgeType.PART_OF:

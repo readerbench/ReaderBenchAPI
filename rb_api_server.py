@@ -68,11 +68,11 @@ def computeCnaGraphOption():
 @app.route("/api/v1/cna-graph", methods=['POST'])
 def computeCnaGraphPost():
     params = json.loads(request.get_data())
-    text = params.get('text')
+    texts = [doc["text"] for doc in params.get('texts')]
     languageString = params.get('lang')
     lang = str_to_lang(languageString)
     models = params.get('models')
-    return compute_graph(text, lang, models)
+    return compute_graph(texts, lang, models)
 
 """ file should have proper extension, otherwise it will not work"""
 @app.route('/api/v1/extract_text', methods=['POST'])
