@@ -23,15 +23,17 @@ def compute_graph(texts: List[str], lang: Lang, models: List) -> str:
     graph = CnaGraph(docs=docs, models=models)
     paragraph_index = 1
     sentence_index = 1
+    doc_index = 1
     names = {}
     for node in graph.graph.nodes():
         if node.is_document():
-            names[node] = "Document"
+            names[node] = "Document {}".format(doc_index)
+            doc_index += 1
         elif node.is_block():
-            names[node] = "Paragraph {}".format(paragraph_index)
+            names[node] = "Paragraph {}.{}".format(doc_index, paragraph_index)
             paragraph_index += 1
         elif node.is_sentence():
-            names[node] = "Sentence {}".format(sentence_index)
+            names[node] = "Sentence {}.{}".format(doc_index, sentence_index)
             sentence_index += 1
     result = {"data": {
         "name": None, "value": None, "type": None, 
