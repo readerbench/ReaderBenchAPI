@@ -36,7 +36,7 @@ def compute_graph(texts: List[str], lang: Lang, models: List) -> str:
             names[node] = "Sentence {}.{}".format(doc_index - 1, sentence_index)
             sentence_index += 1
     result = {"data": {
-        "name": None, "value": None, "type": None, "importance": None,
+        "name": "Document Set", "value": None, "type": None, "importance": None,
         "children": [encode_element(doc, names, graph) for doc in docs]}
         }
     edges = {}
