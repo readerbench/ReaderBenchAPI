@@ -10,10 +10,10 @@ from rb.similarity.vector_model_factory import create_vector_model
 from rb.similarity.word2vec import Word2Vec
 
 
-def encode_element(element: TextElement, names: Dict[TextElement, str]):
-    result =  { "name": names[element], "value": element.text, "type": element.depth }
+def encode_element(element: TextElement, names: Dict[TextElement, str], graph: CnaGraph):
+    result =  { "name": names[element], "value": element.text, "type": element.depth, "importance": graph.importance[element] }
     if not element.is_sentence():
-        result["children"] = [encode_element(child, names) for child in element.components]
+        result["children"] = [encode_element(child, names, graph) for child in element.components]
     return result
 
 def compute_graph(texts: List[str], lang: Lang, models: List) -> str:
@@ -36,8 +36,8 @@ def compute_graph(texts: List[str], lang: Lang, models: List) -> str:
             names[node] = "Sentence {}.{}".format(doc_index - 1, sentence_index)
             sentence_index += 1
     result = {"data": {
-        "name": None, "value": None, "type": None, 
-        "children": [encode_element(doc, names) for doc in docs]}
+        "name": None, "value": None, "type": None, "importance": None
+        "children": [encode_element(doc, names, graph) for doc in docs]}
         }
     edges = {}
     for a, b, data in graph.graph.edges(data=True):
