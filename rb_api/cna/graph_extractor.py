@@ -48,10 +48,12 @@ def compute_graph(texts: List[str], lang: Lang, models: List) -> str:
                 edge_type = "{}: {}".format(data["type"].name, data["model"].name)
             if edge_type not in edges:
                 edges[edge_type] = []
-            edges[edge_type].append({
+            edge = {
                 "source": names[a],
                 "target": names[b],
                 "weight": str(data["value"]) if "value" in data else None,
-            })
+                "details": data["details"],
+            }
+            edges[edge_type].append(edge)
     result["data"]["edges"] = edges
     return result
