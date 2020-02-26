@@ -42,7 +42,7 @@ def compute_graph(texts: List[str], lang: Lang, models: List) -> str:
     edges = {}
     for a, b, data in graph.graph.edges(data=True):
         if data["type"] is not EdgeType.ADJACENT and data["type"] is not EdgeType.PART_OF:
-            if data[type] is EdgeType.COREF:
+            if data["type"] is EdgeType.COREF:
                 edge_type = EdgeType.COREF.name
             else:
                 edge_type = "{}: {}".format(data["type"].name, data["model"].name)
