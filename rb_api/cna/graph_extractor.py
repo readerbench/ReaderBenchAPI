@@ -48,7 +48,7 @@ def compute_graph(texts: List[str], lang: Lang, models: List) -> str:
             edges[edge_type].append({
                 "source": names[a],
                 "target": names[b],
-                "weight": str(data["value"]),
+                "weight": str(data["value"]) if "value" in data else None,
             })
     result["data"]["edges"] = edges
     return result
