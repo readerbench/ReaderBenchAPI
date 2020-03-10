@@ -40,9 +40,12 @@ def textualComplexityPost():
     elif lang is Lang.ES:
         vector_model = VECTOR_MODELS[lang][CorporaEnum.JOSE_ANTONIO][VectorModelType.WORD2VEC](
             name=CorporaEnum.JOSE_ANTONIO.value, lang=lang)
+    elif lang is Lang.RU:
+        vector_model = VECTOR_MODELS[lang][CorporaEnum.RNC_WIKIPEDIA][VectorModelType.WORD2VEC](
+            name=CorporaEnum.RNC_WIKIPEDIA.value, lang=lang)
 
     document = Document(lang=lang, text=text)
-    cna_graph = CnaGraph(doc=document, models=[vector_model])
+    cna_graph = CnaGraph(docs=document, models=[vector_model])
     compute_indices(doc=document, cna_graph=cna_graph)
 
     categoriesList = []
@@ -54,7 +57,7 @@ def textualComplexityPost():
             categoriesList.append(categoryName)
 
         complexityIndexDTO = ComplexityIndexDTO(
-            key.abbr + " (document)", float(value))
+            repr(key) + " (document)", float(value))
         # complexityIndex[categoryName] = complexityIndexDTO
         if (not categoryName in complexityIndices):
             complexityIndices[categoryName] = []
@@ -67,7 +70,7 @@ def textualComplexityPost():
                 categoriesList.append(categoryName)
 
             complexityIndexDTO = ComplexityIndexDTO(
-                key.abbr + " (paragraph)", float(value))
+                repr(key) + " (paragraph)", float(value))
             # complexityIndex[categoryName] = complexityIndexDTO
             if (not categoryName in complexityIndices):
                 complexityIndices[categoryName] = []
@@ -81,7 +84,7 @@ def textualComplexityPost():
                     categoriesList.append(categoryName)
 
                 complexityIndexDTO = ComplexityIndexDTO(
-                    key.abbr + " (sentence)", float(value))
+                    repr(key) + " (sentence)", float(value))
                 # complexityIndex[categoryName] = complexityIndexDTO
                 if (not categoryName in complexityIndices):
                     complexityIndices[categoryName] = []
