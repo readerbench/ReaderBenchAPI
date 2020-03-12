@@ -20,10 +20,10 @@ class Lesson:
         self.lesson_expertise = lesson_expertise
 
     def set_prerequisites(self, pre):
-        self.pre = pre
+        self.prerequisites = pre
 
     def set_postrequisites(self, post):
-        self.post = post
+        self.postrequisites = post
 
     def set_time(self, time):
         self.time = time

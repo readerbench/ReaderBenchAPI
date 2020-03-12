@@ -9,21 +9,17 @@ from rb_api.mass_customization.lesson_keywords import LessonKeywords
 from rb_api.mass_customization.lesson_themes import LessonThemes
 from .lesson_reader import LessonReader
 from rb.core.document import Document
-import json
-import csv
+
 import copy
 import re
-
-from rb_api.dto.text_similarity.pair_dto import PairDTO
-from rb_api.dto.text_similarity.score_dto import ScoreDTO
-from rb_api.dto.text_similarity.scores_dto import ScoresDTO
-from rb_api.dto.text_similarity.text_similarity_response_dto import TextSimilarityResponse
+from rb_api.dto.mass_customization.mass_customization_response import MassCustomizationResponse
 
 app = Flask(__name__)
 
 
 MINUTES_PER_CME_POINT = 60.0
 CORPUS = 'enea_tasa'
+threshold = 0.589;
 
 class Constants:
     EXPERTISE_MED_PAEDI = 1
@@ -103,7 +99,6 @@ def massCustomizationPost():
         })
 
     parsed_topics = parse_topics(topics)
-
     kept_lessons = filter_by_topics(kept_lessons, parsed_topics)
 
     if not kept_lessons:
@@ -130,9 +125,7 @@ def massCustomizationPost():
         })
 
     # Step 3: Compute semantic similarity between the free text and the remaining lessons
-
     #other_topics = text
-
     if text:
         kept_lessons = filter_by_similarity(kept_lessons, text, models, lang)
     if not kept_lessons:
@@ -140,6 +133,16 @@ def massCustomizationPost():
             "error": "No lessons matching your criteria were found. Please broaden your search."
         })
 
+
+    #Step 5: Return lessons in descending order by similarity score
+    # Step 6: Append prerequisites and postrequisites
+    data = build_dto(kept_lessons, all_lessons)
+
+    mass_customization_response = MassCustomizationResponse(
+        data, "", True)
+    json_response = mass_customization_response.toJSON()
+
+    return json_response
 
 def parse_expertise(expertises):
     converted_expertises = set()
@@ -152,9 +155,7 @@ def parse_expertise(expertises):
 def filter_by_expertise(kept_lessons, expertises: set):
     aux_lessons = copy.deepcopy(kept_lessons)
 
-    for key, value in aux_lessons.items():
-        lesson_descriptives = key
-        lesson = value
+    for lesson_descriptives, lesson in aux_lessons.items():
 
         lesson_expertise: LessonExpertise = lesson.lesson_expertise
 
@@ -168,9 +169,9 @@ def filter_by_expertise(kept_lessons, expertises: set):
                 (Constants.EXPERTISE_OTHER in expertises and lesson_expertise.nutrition) or
                 (Constants.EXPERTISE_STUDENT in expertises and lesson_expertise.student)
         ):
-            del kept_lessons[lesson_descriptives]
+            del kept_lessons[str(lesson_descriptives)]
 
-    return aux_lessons
+    return kept_lessons
 
 
 def parse_topics(topics) -> list:
@@ -206,11 +207,11 @@ def filter_by_topics(kept_lessons, parsed_topics):
         has_min_one_keyword = False
 
         for topic in parsed_topics:
-            if topic.level_1 == lesson_keywords.level_1 and topic.level2 in lesson_keywords.level_2:
+            if topic.level1 == lesson_keywords.level1 and topic.level2 in lesson_keywords.level2:
                 has_min_one_keyword = True
                 break
 
-        if has_min_one_keyword:
+        if not has_min_one_keyword:
             print(f"Lesson {lesson_descriptives}  has no matching keywords (lesson keywords: {lesson.keywords})")
             del kept_lessons[lesson_descriptives]
 
@@ -237,13 +238,12 @@ def filter_by_themes(kept_lessons, parsed_themes):
                 (Constants.THEME_PRACTICE in parsed_themes and lesson_themes.practice)
         ):
             del kept_lessons[lesson_descriptives]
-
     return kept_lessons
 
 
 def check_sum_lessons(kept_lessons, cme):
     if not cme:
-        return True
+        return False
 
     sum_credits = 0.0
 
@@ -259,99 +259,66 @@ def check_sum_lessons(kept_lessons, cme):
 def filter_by_similarity(kept_lessons, text, models, lang):
     aux_lessons = copy.deepcopy(kept_lessons)
 
-
     for lesson_descriptives, lesson in aux_lessons.items():
-        no_texts = len(text)
-        pairs = []
-        for i in range(0, no_texts):
-            document1 = Document(lang, text[i])
-            for j in range(i + 1, no_texts):
-                document2 = Document(lang, text[j])
-                scores = []
-                for vectorModel in models:
-                    similarity_score = vectorModel.similarity(
-                        document1, document2)
-                    score_dto = ScoreDTO(vectorModel.type.name, similarity_score)
-                    scores.append(score_dto)
-                pair_dto = PairDTO(i, j, scores)
-                pairs.append(pair_dto)
+        document1 = Document(lang, text)
+        document2 = Document(lang, lesson.description)
+        is_similar = 0
 
-        print(pairs)
-        scores_dto = ScoresDTO(lang, CORPUS, pairs)
+        for vectorModel in models:
+            similarity_score = vectorModel.similarity(
+                document1, document2)
 
+            if similarity_score > threshold:
+                lesson.similarityScore = similarity_score
+                is_similar = 1
+
+        if not is_similar:
+            del kept_lessons[lesson_descriptives]
 
     return kept_lessons
 
+def build_dto(kept_lessons, all_lessons):
+    aux_lessons = copy.deepcopy(kept_lessons)
+    cme_points = 0
+    total_time = 0
+    recommended = list()
+    lessons = set()
+    data = dict()
 
+    for lesson_descriptives, lesson in aux_lessons.items():
+        pre_requisites_ids = list()
+        post_requisites_ids = list()
+        total_time += int(lesson.time)
+        recommended.append(lesson.id)
 
+        if lesson.prerequisites:
+            pre_array = lesson.prerequisites.split(',')
+            for lesson_prerequisite in pre_array:
+                if lesson_prerequisite in all_lessons:
+                    prerequisite_lesson = all_lessons[lesson_prerequisite]
+                    pre_requisites_ids.append(prerequisite_lesson.id)
+                    lessons.add(prerequisite_lesson)
+                    cme_points += int(prerequisite_lesson.time) / MINUTES_PER_CME_POINT
+                    total_time += int(prerequisite_lesson.time)
 
+        lesson.prerequisites = pre_requisites_ids
 
+        if lesson.postrequisites:
+            post_array = lesson.postrequisites.split(',')
+            for lesson_postrequisite in post_array:
+                if lesson_postrequisite in all_lessons:
+                    postrequisite_lesson = all_lessons[lesson_postrequisite]
+                    post_requisites_ids.append(postrequisite_lesson.id)
+                    lessons.add(postrequisite_lesson)
+                    cme_points += int(postrequisite_lesson.time) / MINUTES_PER_CME_POINT
+                    total_time += int(postrequisite_lesson.time)
 
+        lesson.postrequisites = post_requisites_ids
+        lessons.add(lesson)
 
+    data['cmePoints'] = cme_points
+    data['recommended'] = recommended
+    data['time'] = total_time
+    data['lessons'] = list(lessons)
 
-
-
-def massCustomizationPost1():
-    params = request.json
-    print(params)
-    cme = params.get('cme')
-    expertise = params.get('expertise')
-    topics = params.get('topics')
-    text = params.get('text')
-    themes = params.get('themes')
-
-    lang = Lang.EN
-    usePosTagging = True
-    computeDialogism = False
-    useBigrams = False
-    corpus = 'enea_tasa'
-
-    vectorModels = []
-    try:
-        vectorModel = LSA(corpus, lang)
-        vectorModels.append(vectorModel)
-    except FileNotFoundError as inst:
-        print(inst)
-
-    try:
-        vectorModel = LDA(corpus, lang)
-        vectorModels.append(vectorModel)
-    except FileNotFoundError as inst:
-        print(inst)
-
-    try:
-        vectorModel = Word2Vec(corpus, lang)
-        vectorModels.append(vectorModel)
-    except FileNotFoundError as inst:
-        print(inst)
-
-
-
-    noLessons = len(lessons)
-    pairs = []
-    for i in range(0, noTexts):
-        document1 = Document(lang, texts[i])
-        for j in range(i + 1, noTexts):
-                document2 = Document(lang, texts[j])
-                scores = []
-                for vectorModel in vectorModels:
-                        similarityScore = vectorModel.similarity(
-                            document1, document2)
-                        scoreDTO = ScoreDTO(vectorModel.type.name, similarityScore)
-                        scores.append(scoreDTO)
-                pairDTO = PairDTO(i, j, scores)
-                pairs.append(pairDTO)
-
-    # print(pairs)
-    scoresDTO = ScoresDTO(lang, corpus, pairs)
-    textSimilarityResponse = TextSimilarityResponse(scoresDTO, "", True)
-    jsonString = textSimilarityResponse.toJSON()
-
-    return ""
-
-def checkMissingParameters(request):
-    params = json.loads(request.get_data())
-    expertise = params.get('expertise')
-    topics = params.get('topics')
-    themes = params.get('themes')
-
+    return data

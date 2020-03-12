@@ -7,6 +7,7 @@ from rb_api.mass_customization.lesson_keywords import LessonKeywords
 from rb_api.mass_customization.lesson_themes import LessonThemes
 from rb_api.mass_customization.lesson_expertise import LessonExpertise
 import csv
+import urllib.request
 CSV_FILE_PATH = 'https://nextcloud.readerbench.com/index.php/s/bsKbYDrCSYFKNze/download'
 
 
@@ -32,38 +33,39 @@ class LessonReader:
         self.parse()
 
     def parse(self):
-        with open(CSV_FILE_PATH) as csv_file:  
-            csv_reader = csv.DictReader(csv_file, delimiter=',')
-            next(csv_reader)
-            for row in csv_reader:
-                lesson = Lesson(row['title'], row['description'], row['mod'], row['unit'], row['lesson'], row['description'])
-                # self.lessons.append(lesson)
+        content = urllib.request.urlopen(CSV_FILE_PATH).read().decode("utf-8")
+        csv_reader = csv.DictReader(content.splitlines(), delimiter=";")
 
-                level1 = row['key_lvl1']
-                level2 = row['key_lvl2']
+        next(csv_reader)
+        for row in csv_reader:
+            lesson = Lesson(row['title'], row['description'], row['mod'], row['unit'], row['lesson'], row['description'])
+            # self.lessons.append(lesson)
 
-                lesson_keywords = LessonKeywords(level1, level2)
+            level1 = row['key_lvl1']
+            level2 = row['key_lvl2']
 
-                lesson.set_keywords(lesson_keywords)
+            lesson_keywords = LessonKeywords(level1, level2)
 
-                lesson_themes = LessonThemes(row['themes_sci'], row['themes_practice'], row['themes_guide'])
+            lesson.set_keywords(lesson_keywords)
 
-                lesson.set_themes(lesson_themes)
+            lesson_themes = LessonThemes(row['themes_sci'], row['themes_practice'], row['themes_guide'])
 
-                lesson_expertise = LessonExpertise(row['exp_med_paedi'], row['exp_med_gyn'], row['exp_med_gp'], row['exp_med_other'],
-                    row['exp_nurse'], row['exp_nutrition'], row['exp_other'], row['exp_student'])
+            lesson.set_themes(lesson_themes)
 
-                lesson.set_expertise(lesson_expertise)
+            lesson_expertise = LessonExpertise(row['exp_med_paedi'], row['exp_med_gyn'], row['exp_med_gp'], row['exp_med_other'],
+                row['exp_nurse'], row['exp_nutrition'], row['exp_other'], row['exp_student'])
 
-                pre = row['pre'] if row['pre'] else ""
-                lesson.set_prerequisites(pre)
+            lesson.set_expertise(lesson_expertise)
 
-                post = row['post'] if row['post'] else ""
-                lesson.set_postrequisites(post)
+            pre = row['pre'] if row['pre'] else ""
+            lesson.set_prerequisites(pre)
 
-                lesson.set_time(row['time'])
+            post = row['post'] if row['post'] else ""
+            lesson.set_postrequisites(post)
 
-                lesson.set_id(row['id'])
-                self.lessons[lesson.lessonDescriptives] = lesson
+            lesson.set_time(row['time'])
+
+            lesson.set_id(row['id'])
+            self.lessons[str(lesson.lessonDescriptives)] = lesson
 
 
