@@ -29,7 +29,7 @@ def compute_graph(texts: List[str], lang: Lang, models: List) -> str:
         for paragraph_index, paragraph in enumerate(doc.components):
             names[paragraph] = "Paragraph {}.{}".format(doc_index+1, paragraph_index+1)
             for sentence_index, sentence in enumerate(paragraph.components):
-                names[sentence] = "Sentence {}.{}".format(doc_index + 1, sentence_index + 1)
+                names[sentence] = "Sentence {}.{}.{}".format(doc_index + 1, paragraph_index + 1, sentence_index + 1)
     result = {"data": {
         "name": "Document Set", "value": None, "type": None, "importance": None,
         "children": [encode_element(doc, names, graph) for doc in docs]}
