@@ -9,6 +9,7 @@ from werkzeug import secure_filename
 
 import rb_api.amoc.amoc as amoc
 import rb_api.keywords.keywords as keywords
+import rb_api.diacritics.diacritics as diacritics
 import rb_api.text_similarity.text_similarity as text_similarity
 import rb_api.mass_customization.mass_customization as mass_customization
 import rb_api.textual_complexity.textual_complexity as textual_complexity
@@ -23,11 +24,15 @@ def hello():
 
 @app.route("/api/v1/keywords", methods=['OPTIONS'])
 def keywordsOption():
-    return keywords.keywordsOption()
+   return keywords.keywordsOption()
 
 @app.route("/api/v1/keywords", methods=['POST'])
 def keywordsPost():
-    return keywords.keywordsPost()
+   return keywords.keywordsPost()
+
+@app.route("/api/v1/diacritics", methods=['POST'])
+def diacriticsPost():
+    return diacritics.diacriticsPost()
 
 @app.route("/api/v1/textual-complexity", methods=['OPTIONS'])
 def textualComplexityOption():
