@@ -1,4 +1,4 @@
-from werkzeug.contrib.cache import SimpleCache
+from cachelib import SimpleCache
 from rb.similarity.vector_model import VectorModelType, VectorModel
 from rb.similarity.word2vec import Word2Vec
 from rb.core.lang import Lang

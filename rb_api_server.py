@@ -5,7 +5,7 @@ import uuid
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from rb.utils.utils import str_to_lang
-from werkzeug import secure_filename
+from werkzeug.utils import secure_filename
 
 import rb_api.amoc.amoc as amoc
 import rb_api.keywords.keywords as keywords
