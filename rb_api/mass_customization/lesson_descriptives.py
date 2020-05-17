@@ -6,4 +6,4 @@ class LessonDescriptives:
         self.lesson = lesson
 
     def __str__(self):
-        return "LessonDescriptives: %s.%s.%s" % (self.module, self.unit, self.lesson)
+        return "%s.%s.%s" % (self.module, self.unit, self.lesson)
