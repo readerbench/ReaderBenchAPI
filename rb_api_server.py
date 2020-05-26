@@ -69,7 +69,7 @@ def textSimilarityPost():
     return text_similarity.textSimilarityPost()
 
 @app.route("/api/v1/mass-customization", methods=['OPTIONS'])
-def massCustomizationPost():
+def massCustomizationOption():
     return mass_customization.massCustomizationOption()
 
 @app.route("/api/v1/mass-customization", methods=['POST'])
