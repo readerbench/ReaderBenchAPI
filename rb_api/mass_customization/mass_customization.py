@@ -8,6 +8,8 @@ from rb_api.mass_customization.lesson_expertise import LessonExpertise
 from rb_api.mass_customization.lesson_keywords import LessonKeywords
 from rb_api.mass_customization.lesson_themes import LessonThemes
 from .lesson_reader import LessonReader
+from .lesson_reader_other import LessonReaderOther
+from .jacc_similarity import JaccSimilarity
 from rb.core.document import Document
 
 import copy
@@ -19,7 +21,9 @@ app = Flask(__name__)
 
 MINUTES_PER_CME_POINT = 60.0
 CORPUS = 'enea_tasa'
-threshold = 0.589;
+threshold = 0.589
+threshold_other = 0.19
+threshold_similarity = 0.05
 
 class Constants:
     EXPERTISE_MED_PAEDI = 1
@@ -69,6 +73,10 @@ def massCustomizationPost():
     topics = json_request.get('topics')
     text = json_request.get('text')
     themes = json_request.get('themes')
+    otherdomains = json_request.get('otherdomains')
+    level = json_request.get('level')
+    liked_lessons = json_request.get('likedlessons')
+    disliked_lessons = json_request.get('dislikedlessons')
 
     lang = Lang.EN
     usePosTagging = True
@@ -80,63 +88,75 @@ def massCustomizationPost():
     w2v_corpora = Word2Vec(CORPUS, lang)
 
     models = [lsa_corpora, lda_corpora, w2v_corpora]
+    print(otherdomains)
 
-    lesson_reader = LessonReader(lang, models, usePosTagging, computeDialogism, useBigrams)
+    # Check if is other domains
+    if otherdomains:
+        lesson_reader_other = LessonReaderOther(lang, level, topics)
+        all_lessons = lesson_reader_other.lessons
+        kept_lessons = copy.deepcopy(all_lessons)
 
-    all_lessons = lesson_reader.lessons
+    else:
+        lesson_reader = LessonReader(lang, models, usePosTagging, computeDialogism, useBigrams)
+        all_lessons = lesson_reader.lessons
 
-    kept_lessons = copy.deepcopy(all_lessons)
+        kept_lessons = copy.deepcopy(all_lessons)
 
-    # Step 1: Filter lessons by expertise, topics and themes
+        #Filter lessons by expertise, topics and themes
 
-    parsed_expertises = parse_expertise(expertises)
+        parsed_expertises = parse_expertise(expertises)
 
-    kept_lessons = filter_by_expertise(kept_lessons, parsed_expertises)
+        kept_lessons = filter_by_expertise(kept_lessons, parsed_expertises)
 
-    if not kept_lessons:
-        return jsonify({
-            "error": "No lessons matching your criteria were found. Please broaden your search."
-        })
+        if not kept_lessons:
+            return jsonify({
+                "errorMsg": "No lessons matching your criteria were found. Please broaden your search."
+            })
 
-    parsed_topics = parse_topics(topics)
-    kept_lessons = filter_by_topics(kept_lessons, parsed_topics)
+        parsed_topics = parse_topics(topics)
+        kept_lessons = filter_by_topics(kept_lessons, parsed_topics)
 
-    if not kept_lessons:
-        return jsonify({
-            "error": "No lessons matching your criteria were found. Please broaden your search."
-        })
 
-    parsed_themes = parse_themes(themes)
+        if not kept_lessons:
+            return jsonify({
+                "errorMsg": "No lessons matching your criteria were found. Please broaden your search."
+            })
 
-    if parsed_themes:
-        kept_lessons = filter_by_themes(kept_lessons, parsed_themes)
-    if not kept_lessons:
-        return jsonify({
-            "error": "No lessons matching your criteria were found. Please broaden your search."
-        })
+        parsed_themes = parse_themes(themes)
 
-    # Step 2: If CME is true, sum up credits of the remaining lessons (1 credit = 60 mins);
+        if parsed_themes:
+            kept_lessons = filter_by_themes(kept_lessons, parsed_themes)
+        if not kept_lessons:
+            return jsonify({
+                "errorMsg": "No lessons matching your criteria were found. Please broaden your search."
+            })
 
-    has_sum_error = check_sum_lessons(kept_lessons, cme)
+        #If CME is true, sum up credits of the remaining lessons (1 credit = 60 mins);
 
-    if has_sum_error:
-        return jsonify({
-            "error": "The CME sum of the remaining lessons is less than 5. No lesson is retrieved!"
-        })
+        has_sum_error = check_sum_lessons(kept_lessons, cme)
 
-    # Step 3: Compute semantic similarity between the free text and the remaining lessons
-    #other_topics = text
+        if has_sum_error:
+            return jsonify({
+                "errorMsg": "The CME sum of the remaining lessons is less than 5. No lesson is retrieved!"
+            })
+
+    print(len(kept_lessons))
+    #Compute semantic similarity between the free text and the remaining lessons
+    #common for nutrition and other domains
     if text:
-        kept_lessons = filter_by_similarity(kept_lessons, text, models, lang)
+        kept_lessons = filter_by_similarity(kept_lessons, text, models, lang, otherdomains)
     if not kept_lessons:
         return jsonify({
-            "error": "No lessons matching your criteria were found. Please broaden your search."
+            "errorMsg": "No lessons matching your criteria were found. Please broaden your search."
         })
 
-
-    #Step 5: Return lessons in descending order by similarity score
-    # Step 6: Append prerequisites and postrequisites
-    data = build_dto(kept_lessons, all_lessons)
+    if otherdomains:
+        #Verify liked and disliked lessons
+        data = check_liked_disliked(kept_lessons, all_lessons, level, topics, liked_lessons, disliked_lessons)
+    else:
+        # Step 5: Return lessons in descending order by similarity score
+        # Step 6: Append prerequisites and postrequisites
+        data = build_dto(kept_lessons, all_lessons)
 
     mass_customization_response = MassCustomizationResponse(
         data, "", True)
@@ -154,11 +174,9 @@ def parse_expertise(expertises):
 
 def filter_by_expertise(kept_lessons, expertises: set):
     aux_lessons = copy.deepcopy(kept_lessons)
-
     for lesson_descriptives, lesson in aux_lessons.items():
 
         lesson_expertise: LessonExpertise = lesson.lesson_expertise
-
         if not(
                 (Constants.EXPERTISE_MED_GP in expertises and lesson_expertise.medicineGp) or
                 (Constants.EXPERTISE_MED_GYNO in expertises and lesson_expertise.medicineGynocologist) or
@@ -256,26 +274,89 @@ def check_sum_lessons(kept_lessons, cme):
     return False
 
 
-def filter_by_similarity(kept_lessons, text, models, lang):
+def filter_by_similarity(kept_lessons, text, models, lang, otherdomains):
     aux_lessons = copy.deepcopy(kept_lessons)
+    print(aux_lessons)
+    if otherdomains:
+        for lesson in aux_lessons:
+            is_similar = 0
+            print(lesson['published_title'])
+            for learn in lesson['learn_details']:
+                document1 = Document(lang, text)
+                document2 = Document(lang, learn)
 
-    for lesson_descriptives, lesson in aux_lessons.items():
-        document1 = Document(lang, text)
-        document2 = Document(lang, lesson.description)
-        is_similar = 0
+                for vectorModel in models:
+                    similarity_score = vectorModel.similarity(
+                        document1, document2)
 
-        for vectorModel in models:
-            similarity_score = vectorModel.similarity(
-                document1, document2)
+                    if similarity_score > threshold_other:
+                        is_similar = 1
 
-            if similarity_score > threshold:
-                lesson.similarityScore = similarity_score
-                is_similar = 1
+                print(similarity_score)
+            if not is_similar:
+                kept_lessons.remove(lesson)
+    else:
+        for lesson_descriptives, lesson in aux_lessons.items():
+            document1 = Document(lang, text)
+            document2 = Document(lang, lesson.description)
+            is_similar = 0
 
-        if not is_similar:
-            del kept_lessons[lesson_descriptives]
+            for vectorModel in models:
+                similarity_score = vectorModel.similarity(
+                    document1, document2)
 
+                if similarity_score > threshold:
+                    lesson.similarityScore = similarity_score
+                    is_similar = 1
+
+            if not is_similar:
+                del kept_lessons[lesson_descriptives]
+    print(len(kept_lessons))
     return kept_lessons
+
+
+def check_liked_disliked(kept_lessons, all_lessons, level, topics, liked, disliked):
+    data = dict()
+    if liked or disliked:
+        jacc_similarity = JaccSimilarity(topics, level)
+        print(jacc_similarity)
+        add_similar_lessons = []
+        remove_similar_lessons = []
+
+        for topic in topics:
+            for like in liked:
+                for lesson_name, lesson_sim in jacc_similarity.similarity[topic].items():
+                    if like in lesson_sim and lesson_sim[like] > threshold_similarity:
+                        add_similar_lessons.append(lesson_sim)
+                for lesson_name, lesson_sim in jacc_similarity.similarity[topic][like].items():
+                    if lesson_sim > threshold_similarity:
+                        add_similar_lessons.append(lesson_name)
+
+            for dislike in disliked:
+                for lesson_name, lesson_sim in jacc_similarity.similarity[topic].items():
+                    if dislike in lesson_sim and lesson_sim[dislike] > threshold_similarity:
+                        remove_similar_lessons.append(lesson_sim)
+                for lesson_name, lesson_sim in jacc_similarity.similarity[topic][dislike].items():
+                    if lesson_sim > threshold_similarity:
+                        remove_similar_lessons.append(lesson_name)
+
+        for add_similar in add_similar_lessons:
+            for lesson in all_lessons:
+                if add_similar == lesson['published_title'] and lesson not in kept_lessons:
+                    kept_lessons.append(lesson)
+
+        for add_similar in remove_similar_lessons:
+            for lesson in all_lessons:
+                if add_similar == lesson['published_title'] and lesson in kept_lessons:
+                    kept_lessons.remove(lesson)
+
+        for lesson in kept_lessons:
+            if lesson['published_title'] in disliked:
+                kept_lessons.remove(lesson)
+
+    data['lessons'] = list(kept_lessons)
+    return data
+
 
 def build_dto(kept_lessons, all_lessons):
     aux_lessons = copy.deepcopy(kept_lessons)
