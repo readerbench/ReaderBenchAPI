@@ -14,7 +14,7 @@ import rb_api.text_similarity.text_similarity as text_similarity
 import rb_api.mass_customization.mass_customization as mass_customization
 import rb_api.textual_complexity.textual_complexity as textual_complexity
 from rb_api.cna.graph_extractor import compute_graph
-from rb_api.cscl import cscl
+#from rb_api.cscl import cscl
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
