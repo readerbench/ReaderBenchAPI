@@ -14,6 +14,7 @@ import rb_api.text_similarity.text_similarity as text_similarity
 import rb_api.mass_customization.mass_customization as mass_customization
 import rb_api.textual_complexity.textual_complexity as textual_complexity
 from rb_api.cna.graph_extractor import compute_graph
+from rb_api.cscl import cscl
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -102,6 +103,15 @@ def extract_text():
         pass
     return jsonify(raw_text)
 
+@app.route("/api/v1/cscl-processing", methods=['OPTIONS'])
+def csclOption():
+   return cscl.csclOption()
+
+
+@app.route("/api/v1/cscl-processing", methods=['POST'])
+def csclPost():
+   return cscl.csclPost()
+
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=6006, debug=True)
