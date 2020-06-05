@@ -22,7 +22,7 @@ app = Flask(__name__)
 MINUTES_PER_CME_POINT = 60.0
 CORPUS = 'enea_tasa'
 threshold = 0.589
-threshold_other = 0.19
+threshold_other = 0.3
 threshold_similarity = 0.05
 
 class Constants:
@@ -88,7 +88,7 @@ def massCustomizationPost():
     w2v_corpora = Word2Vec(CORPUS, lang)
 
     models = [lsa_corpora, lda_corpora, w2v_corpora]
-    print(otherdomains)
+
 
     # Check if is other domains
     if otherdomains:
@@ -140,7 +140,7 @@ def massCustomizationPost():
                 "errorMsg": "The CME sum of the remaining lessons is less than 5. No lesson is retrieved!"
             })
 
-    print(len(kept_lessons))
+
     #Compute semantic similarity between the free text and the remaining lessons
     #common for nutrition and other domains
     if text:
@@ -276,14 +276,14 @@ def check_sum_lessons(kept_lessons, cme):
 
 def filter_by_similarity(kept_lessons, text, models, lang, otherdomains):
     aux_lessons = copy.deepcopy(kept_lessons)
-    print(aux_lessons)
+
     if otherdomains:
         for lesson in aux_lessons:
             is_similar = 0
-            print(lesson['published_title'])
+
             for learn in lesson['learn_details']:
-                document1 = Document(lang, text)
-                document2 = Document(lang, learn)
+                document1 = Document(lang, learn)
+                document2 = Document(lang, text)
 
                 for vectorModel in models:
                     similarity_score = vectorModel.similarity(
@@ -292,9 +292,12 @@ def filter_by_similarity(kept_lessons, text, models, lang, otherdomains):
                     if similarity_score > threshold_other:
                         is_similar = 1
 
-                print(similarity_score)
+
             if not is_similar:
+
                 kept_lessons.remove(lesson)
+
+
     else:
         for lesson_descriptives, lesson in aux_lessons.items():
             document1 = Document(lang, text)
@@ -311,7 +314,7 @@ def filter_by_similarity(kept_lessons, text, models, lang, otherdomains):
 
             if not is_similar:
                 del kept_lessons[lesson_descriptives]
-    print(len(kept_lessons))
+
     return kept_lessons
 
 
@@ -319,7 +322,7 @@ def check_liked_disliked(kept_lessons, all_lessons, level, topics, liked, dislik
     data = dict()
     if liked or disliked:
         jacc_similarity = JaccSimilarity(topics, level)
-        print(jacc_similarity)
+
         add_similar_lessons = []
         remove_similar_lessons = []
 
