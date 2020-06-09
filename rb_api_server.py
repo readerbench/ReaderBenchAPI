@@ -115,6 +115,13 @@ def csclOption():
 def csclPost():
    return cscl.csclPost()
 
+@app.route("/api/v1/file-upload", methods=['OPTIONS'])
+def fileUploadOption():
+   return cscl.csclOption()
+
+@app.route('/api/v1/file-upload', methods=["POST"])
+def fileUploadPost():
+    return cscl.fileUploadPost()
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=6006, debug=True)

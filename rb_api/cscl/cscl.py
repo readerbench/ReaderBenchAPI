@@ -1,15 +1,19 @@
 import json
+import os
+from time import time
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 from rb.cna.cna_graph import CnaGraph
 from rb.complexity.complexity_index import compute_indices
 from rb.complexity.index_category import IndexCategory
 from rb.core.cscl.community import Community
+from rb.core.cscl.conversation import Conversation
 from rb.core.cscl.cscl_indices import CsclIndices
 from rb.core.cscl.cscl_indices_descriptions import CsclIndicesDescriptions
+from rb.core.cscl.cscl_parser import load_from_xml
 from rb.core.document import Document
 from rb.core.lang import Lang
-from rb.core.cscl.cscl_parser import load_from_xml
+from rb.core.pos import POS
 from rb.core.text_element import TextElement
 from rb.processings.cscl.participant_evaluation import (evaluate_interaction,
                                                         evaluate_involvement,
@@ -21,10 +25,12 @@ from rb.similarity.vector_model import (CorporaEnum, VectorModel,
 from rb.similarity.vector_model_factory import (VECTOR_MODELS,
                                                 create_vector_model)
 from rb.utils.utils import str_to_lang
-from rb.core.cscl.conversation import Conversation
-from rb.core.pos import POS
+from werkzeug.utils import secure_filename
+from os import path
 
 app = Flask(__name__)
+ALLOWED_EXTENSIONS = set(['xml'])
+UPLOAD_FOLDER = "upload"
 
 def csclOption():
     return ""
@@ -38,7 +44,9 @@ def csclPost():
     print('Processing CSCL file ' + csclFile + ' using ' + lang.value + ' language')
 
     # conv_thread = Conversation.load_from_xml(lang, csclFile)
-    conv_thread = load_from_xml(lang, csclFile)
+    basepath = path.dirname(__file__)
+    filepath = path.abspath(path.join(basepath, "..", "..", "upload", csclFile))
+    conv_thread = load_from_xml(lang, filepath)
     myCommunity = Community(lang=lang, container=None, community=[conv_thread])
     fr_le_monde_word2vec = create_vector_model(lang, VectorModelType.from_str("lsa"), "le_monde_small")
     myCommunity.graph = CnaGraph(docs=[myCommunity], models=[fr_le_monde_word2vec])
@@ -154,5 +162,46 @@ def csclPost():
     # End CSCL Descriptions
 
     # print (csclData)
+    response = success(csclData)
 
-    return jsonify(csclData)
+    return response
+
+def fileUploadPost():
+    data = request.files['file']
+    name = data.filename
+    filename = data.filename
+    serverFilename = str(time())
+    if allowed_file(filename):
+        filename = secure_filename(filename)
+        path = os.path.join(UPLOAD_FOLDER, serverFilename)
+        # if not os.path.exists(path):
+        #     os.makedirs(path)
+        # path = os.path.join(path, filename)
+        data.save(path)
+        # path = os.path.join(path, filename)
+
+    else:
+        response = error("Invalid uploaded file!")
+        return generate_response(response)
+    response = success({"file": serverFilename})
+    
+    return generate_response(response)
+
+
+def allowed_file(filename: str) -> bool:
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def success(data) -> Response:
+    return jsonify({"data": data, "success": True, "errMsg": ""})
+
+def error(message: str) -> Response:
+    return jsonify({"data": {}, "success": False, "errMsg": message})
+
+
+def generate_response(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Accept,Content-Type,Authorization,Access-Control-Allow-Origin,Cache-Control')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,HEAD')
+    return response, 200
