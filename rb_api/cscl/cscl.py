@@ -64,7 +64,7 @@ def csclPost():
     csclData["conceptMap"]["nodeList"] = []
     csclData["conceptMap"]["edgeList"] = []
     keywords_extractor = KeywordExtractor()
-    keywords = keywords_extractor.extract_keywords(text=conv.text, lang=lang, vector_model=fr_le_monde_word2vec)
+    keywords = keywords_extractor.extract_keywords(text=conv.text, lang=lang, max_keywords=40, vector_model=fr_le_monde_word2vec)
     # print(keywords)
     for p in keywords:
         score = p[0]
