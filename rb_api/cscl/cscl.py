@@ -37,6 +37,7 @@ def csclOption():
 
 def csclPost():
     params = json.loads(request.get_data())
+    print(params)
     csclFile = params.get('cscl-file')
     languageString = params.get('language')
     lang = str_to_lang(languageString)
