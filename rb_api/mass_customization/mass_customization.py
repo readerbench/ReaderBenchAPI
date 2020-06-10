@@ -65,6 +65,8 @@ THEME_TO_CONSTANT = {
     "practice": Constants.THEME_PRACTICE
 }
 
+def massCustomizationOption():
+    return ""
 
 def massCustomizationPost():
     json_request = request.json

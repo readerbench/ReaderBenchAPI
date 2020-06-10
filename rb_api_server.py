@@ -9,7 +9,7 @@ from werkzeug.utils import secure_filename
 
 import rb_api.amoc.amoc as amoc
 import rb_api.keywords.keywords as keywords
-import rb_api.diacritics.diacritics as diacritics
+# import rb_api.diacritics.diacritics as diacritics
 import rb_api.text_similarity.text_similarity as text_similarity
 import rb_api.mass_customization.mass_customization as mass_customization
 import rb_api.textual_complexity.textual_complexity as textual_complexity
@@ -34,9 +34,9 @@ def keywordsOption():
 def keywordsPost():
    return keywords.keywordsPost()
 
-@app.route("/api/v1/diacritics", methods=['POST'])
-def diacriticsPost():
-    return diacritics.diacriticsPost()
+# @app.route("/api/v1/diacritics", methods=['POST'])
+# def diacriticsPost():
+    # return diacritics.diacriticsPost()
 
 
 @app.route("/api/v1/textual-complexity", methods=['OPTIONS'])
@@ -68,6 +68,9 @@ def textSimilarityOption():
 def textSimilarityPost():
     return text_similarity.textSimilarityPost()
 
+@app.route("/api/v1/mass-customization", methods=['OPTIONS'])
+def massCustomizationOption():
+    return mass_customization.massCustomizationOption()
 
 @app.route("/api/v1/mass-customization", methods=['POST'])
 def massCustomizationPost():
@@ -112,6 +115,13 @@ def csclOption():
 def csclPost():
    return cscl.csclPost()
 
+@app.route("/api/v1/file-upload", methods=['OPTIONS'])
+def fileUploadOption():
+   return cscl.csclOption()
+
+@app.route('/api/v1/file-upload', methods=["POST"])
+def fileUploadPost():
+    return cscl.fileUploadPost()
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=6006, debug=True)
