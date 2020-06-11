@@ -48,7 +48,7 @@ def csclPost():
     basepath = path.dirname(__file__)
     filepath = path.abspath(path.join(basepath, "..", "..", "upload", csclFile))
     conv_thread = load_from_xml(lang, filepath)
-    myCommunity = Community(lang=lang, container=None, community=conv_thread)
+    myCommunity = Community(lang=lang, container=None, community=[conv_thread])
     fr_le_monde_word2vec = create_vector_model(lang, VectorModelType.from_str("word2vec"), "le_monde_small")
     myCommunity.graph = CnaGraph(docs=[myCommunity], models=[fr_le_monde_word2vec])
 
