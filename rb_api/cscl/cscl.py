@@ -53,6 +53,7 @@ def csclPost():
     myCommunity.graph = CnaGraph(docs=[myCommunity], models=[fr_le_monde_word2vec])
 
     conv = myCommunity.get_conversations()[0]
+    conv.container.graph = CnaGraph(docs=[conv], models=[fr_le_monde_word2vec])
 
     participant_list = conv.get_participants()  
     names = list(map(lambda p: p.get_id(), participant_list))
