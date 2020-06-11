@@ -1,0 +1,223 @@
+{
+    "document": [
+        {
+            "id": "AvgDocWdEntropy",
+            "name": "Diversitatea conceptelor",
+            "min": 4.682572323,
+            "max": 5.112678814,
+            "feedbackMessagesLow": "La nivel global aveți o diversitate prea mică a lexicului utilizat. Vă recomandăm introducerea de noi concepte pentru varietate și pentru a evita monotonia.",
+            "feedbackMessagesHigh": "Eseul are o diversitate prea mare a lexicului utilizat. Vă recomandăm reducerea numărului de concepte unice utilizate."
+        },
+        {
+            "id": "AvgWordWdLen",
+            "name": "Lungimea medie a tuturor cuvintelor",
+            "min": 5.620840609,
+            "max": 7.081674433,
+            "feedbackMessagesLow": "Textul pare destul de simplist din prisma lungimii medii a cuvintelor. Recomandăm utilizarea unui limbaj mai elevat.",
+            "feedbackMessagesHigh": "Textul pare mult prea complicat din prisma lungimii medii a cuvintelor. Recomandăm utilizarea unui limbaj simplificat pentru a facilita lectura eseului."
+        },
+        {
+            "id": "AvgDocAdjCoh_DOC",
+            "name": "Coeziune inter paragraf, bazată per word2vec",
+            "min": 0.68723419,
+            "max": 1.00,
+            "feedbackMessagesLow": "Textul are o coeziune globală scăzută între paragrafe. Vă recomandăm construirea unei structurii în cadrul căreia să maximizați coeziunea între paragrafe adiacente.",
+            "feedbackMessagesHigh": "Textul are o coeziune globală ridicată între paragrafe. Vă recomandăm construirea unei structurii în cadrul căreia să diversificați conceptele abordate între paragrafe adiacente."
+        },
+        {
+            "id": "AvgBlockNoSent",
+            "name": "Numărul mediu de propoziții per paragraf",
+            "min": 3,
+            "max": 6,
+            "feedbackMessagesLow": "Paragrafele conțin prea puține propoziții. Vă recomandăm introducerea de detalii suplimentare pentru a accentua ideea centrală a paragrafelor.",
+            "feedbackMessagesHigh": "Paragrafele conțin prea multe propoziții. Vă recomandăm fie unificarea de propoziții scurte, fie segmentarea paragrafelor în două sau mai multe paragrafe coerente."
+        },
+        {
+            "id": "AvgBlockNoWd",
+            "name": "Numărul mediu de cuvinte per paragraf",
+            "min": 50,
+            "max": 150,
+            "feedbackMessagesLow": "Paragrafele conțin prea puține cuvinte. Vă recomandăm o descriere mai amplă a anumitor concepte.",
+            "feedbackMessagesHigh": "Vă recomdăm reducerea numărului de cuvinte la nivelul paragrafelor. Încercați eliminarea părților care nu contribuie la ideea de ansamblu a textului."
+        },
+        {
+            "id": "AvgBlockPOSMain_noun",
+            "min": 0.00,
+            "max": 32.424,
+            "name": "Numărul mediu de substantive per paragraf",
+            "feedbackMessagesLow": "Paragrafele conțin prea puține substantive. Vă recomandăm creșterea numărului lor pentru o coerență crescută.",
+            "feedbackMessagesHigh": "Paragrafele conțin prea multe substantive. Încercați reducerea numărului lor pentru o mai bună cursivitate a paragrafului."
+        },
+        {
+            "id": "AvgBlockPOSMain_verb",
+            "min": 0.00,
+            "max": 30.36,
+            "name": "Numărul mediu de verbe per pragraf",
+            "feedbackMessagesLow": "Numărul de verbe din acest text este prea mic. Este recomandată creșterea frecvenței lor pentru o mai bună înțelgere a paragrafelor.",
+            "feedbackMessagesHigh": "Numărul de verbe din acest text este prea mare. Este recomandată reducerea lor pentru o mai bună înțelgere a paragrafelor."
+        },
+        {
+            "id": "AvgBlockPOSMain_adv",
+            "min": 0.00,
+            "max": 16.08,
+            "name": "Numărul mediu de adverbe per pragraf",
+            "feedbackMessagesLow": "Textul acesta are prea puține adverbe. Încercați creșterea numărului lor pentru o mai bună înțelgere a paragrafelor.",
+            "feedbackMessagesHigh": "Numărul de adverbe din acest text este prea mare. Este recomandată reducerea lor pentru simplificarea paragrafelor."
+        },
+        {
+            "id": "AvgBlockPOSMain_adj",
+            "min": 0.00,
+            "max": 17.22,
+            "name": "Numărul mediu de adjective per pragraf",
+            "feedbackMessagesLow": "Textul acesta are prea puține adjective. Este recomandată creșterea frecvenței lor pentru o mai bună înțelgere a paragrafelor.",
+            "feedbackMessagesHigh": "Numărul de adjective din acest text este prea mare. Încercați reducerea numărului lor pentru o mai bună înțelgere a paragrafelor."
+        },
+        {
+            "id": "AvgSentNoWd",
+            "name": "Numărul mediu de cuvinte per frază",
+            "min": 5,
+            "max": 35,
+            "feedbackMessagesLow": "Frazele sunt mult prea scurte, vă recomandăm elaborarea ideilor.",
+            "feedbackMessagesHigh": "Frazele conțin prea mult cuvinte. Este indicată segmentarea acestora."
+        },
+        {
+            "id": "AvgBlockIntraCoh_BLOCK",
+            "name": "Coeziune intra paragraf, bazată per word2vec",
+            "min": 0.461116332,
+            "max": 1.0,
+            "feedbackMessagesLow": "Textul are o coeziune locală scăzută între propozițiile incluse În paragrafe. Vă recomandăm prezentarea cursivă și legată a ideilor subsecvente în cadrul paragrafelor. ",
+            "feedbackMessagesHigh": "Textul are un nivel de coeziune prea ridcat. Vă recomandăm diversificarea conceptelor și a exprimării."
+        },
+        {
+            "id": "AvgSentPOSMain_noun",
+            "name": "Numărul mediu de substantive per frază",
+            "min": 0.00,
+            "max": 7.5502,
+            "feedbackMessagesLow": "Numărul de substantive la nivelul frazelor este prea mic. Încercați reducerea numărului lor pentru o mai bună cursivitate a propozițiilor.",
+            "feedbackMessagesHigh": "Numărul de substantive la nivelul frazelor este este prea mare. Vă recomandăm reducerea frecvenței lor pentru simplificarea textului."
+        },
+        {
+            "id": "AvgSentPOSMain_verb",
+            "name": "Numărul mediu de verbe per frază",
+            "min": 0.00,
+            "max": 7.09,
+            "feedbackMessagesLow": 
+                "Numărul de verbe la nivelul frazelor este prea mic. Vă recomandăm creșterea frecvenței lor pentru a facilita cursivitatea textului.",
+            "feedbackMessagesHigh": "Numărul de verbe la nivelul frazelor este prea mare. Este recomandată reducerea numărului lor pentru simplificarea textului."
+        },
+        {
+            "id": "AvgSentPOSMain_adv",
+            "name": "Numărul mediu de adverbe per frază",
+            "min": 0.00,
+            "max": 3.80,
+            "feedbackMessagesLow": "Numărul de adverbe la nivelul frazelor este prea mic. Vă recomandăm creșterea frecvenței lor pentru a facilita cursivitatea textului.",
+            "feedbackMessagesHigh": "Numărul de adverbe la nivelul frazelor este prea mare. Este recomandată reducerea numărului lor pentru simplificarea textului."
+        },
+        {
+            "id": "AvgSentPOSMain_adj",
+            "name": "Numărul mediu de adjective per frază",
+            "min": 0.00,
+            "max": 4.24,
+            "feedbackMessagesLow": "Numărul de adjective la nivelul frazelor este prea mic. Vă recomandăm creșterea frecvenței lor pentru a facilita cursivitatea textului.",
+            "feedbackMessagesHigh": "Numărul de adjective la nivelul frazelor este prea mare. Este recomandată reducerea numărului lor pentru simplificarea textului."
+        },
+        {
+            "id": "AvgWordWdMaxDpthHypernymTree",
+            "name": "Adâncimea maximă a cuvintelor în arborele de hipernime",
+            "min": 0,
+            "max": 10,
+            "feedbackMessagesLow": "Cuvintele utilizate în text sunt prea generale. Vă recomandăm să înlocuiți o parte din ele cu unele mai specifice.",
+            "feedbackMessagesHigh": "Cuvintele utilizate în text sunt prea specifice. Vă recomandăm să înlocuiți o parte din ele cu unele mai simple."
+        },
+        {
+            "id": "AvgWordWdAvgDpthHypernymTree",
+            "name": "Adâncimea medie a cuvintelor în arborele de hipernime",
+            "min": 0,
+            "max": 8,
+            "feedbackMessagesLow": "Cuvintele utilizate în text sunt prea generale. Vă recomandăm să înlocuiți o parte din ele cu unele mai specifice.",
+            "feedbackMessagesHigh": "Cuvintele utilizate în text sunt prea specifice. Vă recomandăm să sporiți ușurința de înțelegere prin utilizarea unor termeni mai simpli."
+        },
+        {
+            "id": "AvgWordSyll",
+            "name": "Numărul mediu de silabe la nivelul cuvintelor",
+            "min": 1,
+            "max": 5,
+            "feedbackMessagesLow": "Cuvintele utilizate în text sunt prea scurte. Vă recomandăm să înlocuiți o parte din ele cu unele mai elaborate pentru a obține un text mai complex.",
+            "feedbackMessagesHigh": "Cuvintele utilizate în text au o lungime prea mare. Vă recomandăm să sporiți ușurința de înțelegere prin utilizarea unor termeni mai simpli."
+        },
+        {
+            "id": "AvgWordWdPolysemy",
+            "name": "Numărul mediu de sensuri ale cuvintelor",
+            "min": 1,
+            "max": 5,
+            "feedbackMessagesLow": "Majoritatea cuvintelor utilizate în text sunt prea simple, au sens unic. Vă recomandăm să înlocuiți o parte din ele cu unele mai elaborate pentru a obține un text mai complex.",
+            "feedbackMessagesHigh": "Majoritatea cuvintelor utilizate au o multitudine de sensuri posibile, generând un text ambiguu. Vă recomandăm să sporiți ușurința de înțelegere prin utilizarea unor termeni mai concreți."
+        },
+        {
+            "id": "AvgSentRepetitions",
+            "name": "Repetarea conceptelor în propoziții",
+            "min": 0,
+            "max": 5,
+            "feedbackMessagesLow": "Textul conține puține concepte noi. Vă recomandăm să diversificați informația.",
+            "feedbackMessagesHigh": "Textul conține informație prea diversă. Vă recomandăm ca noile concepte introduse să fie explicate și nuanțate."
+        },
+        {
+            "id": "AvgSentNoPunct",
+            "name": "Numărul mediu de semne de punctuație la nivel de frază",
+            "min": 1,
+            "max": 20,
+            "feedbackMessagesLow": "Frazele prezintă un număr foarte mic de semne de punctuație. Vă recomandăm verificarea corectitudinii gramaticale.",
+            "feedbackMessagesHigh": "Frazele prezintă un număr foarte ridicat de semne de punctuație. Vă recomandăm verificarea corectitudinii gramaticale."
+        },
+        {
+            "id": "AvgBlockNoPunct",
+            "name": "Numărul mediu de semne de punctuație la nivel de paragraf",
+            "min": 5,
+            "max": 125,
+            "feedbackMessagesLow": "Paragrafele prezintă un număr foarte mic de semne de punctuație. Vă recomandăm verificarea corectitudinii gramaticale sau reformularea mai multor propoziții scurte într-o frază.",
+            "feedbackMessagesHigh": "Paragrafele prezintă un număr foarte ridicat de semne de punctuație. Vă recomandăm verificarea corectitudinii gramaticale sau reformularea textului prin spargerea frazelor lungi."
+        },
+        {
+            "id": "AvgSentNoCommas",
+            "name": "Numărul mediu de virgule la nivel de frază",
+            "min": 0,
+            "max": 20,
+            "feedbackMessagesLow": "Frazele prezintă un număr foarte mic de virgule. Vă recomandăm verificarea corectitudinii gramaticale.",
+            "feedbackMessagesHigh": "Frazele prezintă un număr foarte mare de virgule. Vă recomandăm verificarea corectitudinii gramaticale."
+        },
+        {
+            "id": "AvgBlockNoCommas",
+            "name": "Numărul mediu de virgule la nivel de paragraf",
+            "min": 0,
+            "max": 90,
+            "feedbackMessagesLow": "Paragrafele prezintă un număr foarte mic de virgule. Vă recomandăm verificarea corectitudinii gramaticale.",
+            "feedbackMessagesHigh": "Paragrafele prezintă un număr foarte mare de virgule. Vă recomandăm verificarea corectitudinii gramaticale."
+        }
+    ],
+    "pca": [
+        {
+            "id": "PC1",
+            "name": "Concepte",
+            "min": -4,
+            "max": 4,
+            "feedbackMessagesLow": "Textul prezintă informații despre un număr scăzut de concepte, folosind cuvinte simple. Se recomandă reformularea utilizând termeni mai complecși și diversificarea informației.",
+            "feedbackMessagesHigh": "Textul prezintă informații despre un număr crescut de concepte, multe cuvinte fiind complexe. Se recomandă reformularea utilizând termeni mai simpli și reducerea informației."
+        },
+        {
+            "id": "PC2",
+            "name": "Entropie",
+            "min": -2.5,
+            "max": 2.5,
+            "feedbackMessagesLow": "La nivel global aveți o diversitate mică a lexicului utilizat. Vă recomandăm introducerea de noi concepte pentru varietate și pentru a evita monotonia.",
+            "feedbackMessagesHigh": "Eseul are o diversitate prea mare a lexicului utilizat. Vă recomandăm reducerea numărului de concepte unice utilizate."
+        },
+        {
+            "id": "PC3",
+            "name": "Coeziune",
+            "min": -1,
+            "max": 1,
+            "feedbackMessagesLow": "Textul are o coeziune globală scăzută între paragrafe. Vă recomandăm construirea unei structurii în cadrul căreia să maximizați legătură semantică între paragrafe adiacente.",
+            "feedbackMessagesHigh": "Textul are o coeziune globală ridicată între paragrafe. Vă recomandăm construirea unei structurii în cadrul căreia să diversificați conceptele abordate între paragrafe adiacente."
+        }
+    ]
+}

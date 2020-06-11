@@ -2,7 +2,7 @@ import json
 import os
 import uuid
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
 from flask_cors import CORS, cross_origin
 from rb.utils.utils import str_to_lang
 from werkzeug.utils import secure_filename
@@ -13,6 +13,7 @@ import rb_api.keywords.keywords as keywords
 import rb_api.text_similarity.text_similarity as text_similarity
 import rb_api.mass_customization.mass_customization as mass_customization
 import rb_api.textual_complexity.textual_complexity as textual_complexity
+import rb_api.feedback.feedback as feedback
 from rb_api.cna.graph_extractor import compute_graph
 from rb_api.cscl import cscl
 
@@ -115,13 +116,48 @@ def csclOption():
 def csclPost():
    return cscl.csclPost()
 
+
 @app.route("/api/v1/file-upload", methods=['OPTIONS'])
 def fileUploadOption():
    return cscl.csclOption()
 
+
 @app.route('/api/v1/file-upload', methods=["POST"])
 def fileUploadPost():
     return cscl.fileUploadPost()
+
+@app.route("/api/v1/feedback", methods=['OPTIONS'])
+def feedbackOption():
+    return generate_response(success())
+
+
+@app.route("/api/v1/feedback", methods=['POST'])
+def feedbackPost():
+    params = json.loads(request.get_data())
+    text = params.get('text')
+    response = dict()
+    response['feedback'] = feedback.automatic_feedback(text)
+    response['score'] = feedback.automatic_scoring(text)
+    response = success(response)
+    return generate_response(response)
+
+
+def generate_response(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers',
+                         'Origin, X-Requested-With, Accept,Content-Type,Authorization,Access-Control-Allow-Origin,Cache-Control')
+    response.headers.add('Access-Control-Allow-Methods',
+                         'GET,PUT,POST,DELETE,OPTIONS,HEAD')
+    return response, 200
+
+
+def success(data) -> Response:
+    return jsonify({"data": data, "success": True, "errMsg": ""})
+
+
+def error(message: str) -> Response:
+    return jsonify({"data": {}, "success": False, "errMsg": message})
+
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=6006, debug=True)
