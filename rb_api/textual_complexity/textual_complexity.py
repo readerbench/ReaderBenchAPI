@@ -51,7 +51,6 @@ def textualComplexityPost():
     categoriesList = []
     complexityIndices = {}
     for key, value in document.indices.items():
-
         categoryName = key.category.name
         if (categoryName not in categoriesList):
             categoriesList.append(categoryName)
@@ -59,7 +58,7 @@ def textualComplexityPost():
         complexityIndexDTO = ComplexityIndexDTO(
             repr(key), float(value), type="document")
         # complexityIndex[categoryName] = complexityIndexDTO
-        if (not categoryName in complexityIndices):
+        if categoryName not in complexityIndices:
             complexityIndices[categoryName] = []
         complexityIndices[categoryName].append(complexityIndexDTO)
 
@@ -70,10 +69,10 @@ def textualComplexityPost():
                 categoriesList.append(categoryName)
 
             complexityIndexDTO = ComplexityIndexDTO(repr(key), float(value), 
-                                                    key=str(paragraph_id),
-                                                    type="paragraph")
+                                                    type="paragraph", 
+                                                    paragraph_index= paragraph_id)
             # complexityIndex[categoryName] = complexityIndexDTO
-            if (not categoryName in complexityIndices):
+            if categoryName not in complexityIndices:
                 complexityIndices[categoryName] = []
             complexityIndices[categoryName].append(complexityIndexDTO)
 
@@ -85,10 +84,11 @@ def textualComplexityPost():
                     categoriesList.append(categoryName)
 
                 complexityIndexDTO = ComplexityIndexDTO(repr(key), float(value), 
-                                                        key=f"{paragraph_id}.{sentence_id}", 
-                                                        type="sentence")
+                                                        type="sentence",
+                                                        paragraph_index=paragraph_id,
+                                                        sentence_index=sentence_id)
                 # complexityIndex[categoryName] = complexityIndexDTO
-                if (not categoryName in complexityIndices):
+                if categoryName not in complexityIndices:
                     complexityIndices[categoryName] = []
                 complexityIndices[categoryName].append(complexityIndexDTO)
 

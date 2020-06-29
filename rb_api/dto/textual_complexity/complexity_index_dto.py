@@ -3,11 +3,12 @@ from rb_api.json_serialize import JsonSerialize
 
 class ComplexityIndexDTO(JsonSerialize):
 
-    def __init__(self, index, value, key = "0", type = ""):
+    def __init__(self, index, value, type, paragraph_index = -1, sentence_index=-1):
         self.index = index
         self.value = value
-        self.key = key
         self.type = type
+        self.paragraph_index = paragraph_index
+        self.sentence_index = sentence_index
 
     def __str__(self):
         return "ComplexityIndexDTO: index=%s ; value=%s\n" % (self.index, self.value)
