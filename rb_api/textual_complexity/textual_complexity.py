@@ -57,50 +57,53 @@ def textualComplexityPost():
             categoriesList.append(categoryName)
 
         complexityIndexDTO = ComplexityIndexDTO(
-            repr(key) + " (document)", float(value))
+            repr(key), float(value), type="document")
         # complexityIndex[categoryName] = complexityIndexDTO
         if (not categoryName in complexityIndices):
             complexityIndices[categoryName] = []
         complexityIndices[categoryName].append(complexityIndexDTO)
 
-    for paragraph in document.components:
+    for paragraph_id, paragraph in enumerate(document.components):
         for key, value in paragraph.indices.items():
             categoryName = key.category.name
             if (categoryName not in categoriesList):
                 categoriesList.append(categoryName)
 
-            complexityIndexDTO = ComplexityIndexDTO(
-                repr(key) + " (paragraph)", float(value))
+            complexityIndexDTO = ComplexityIndexDTO(repr(key), float(value), 
+                                                    key=str(paragraph_id),
+                                                    type="paragraph")
             # complexityIndex[categoryName] = complexityIndexDTO
             if (not categoryName in complexityIndices):
                 complexityIndices[categoryName] = []
             complexityIndices[categoryName].append(complexityIndexDTO)
 
-    for paragraph in document.components:
-        for sentence in paragraph.components:
+    for paragraph_id, paragraph in enumerate(document.components):
+        for sentence_id, sentence in enumerate(paragraph.components):
             for key, value in sentence.indices.items():
                 categoryName = key.category.name
                 if (categoryName not in categoriesList):
                     categoriesList.append(categoryName)
 
-                complexityIndexDTO = ComplexityIndexDTO(
-                    repr(key) + " (sentence)", float(value))
+                complexityIndexDTO = ComplexityIndexDTO(repr(key), float(value), 
+                                                        key=f"{paragraph_id}.{sentence_id}", 
+                                                        type="sentence")
                 # complexityIndex[categoryName] = complexityIndexDTO
                 if (not categoryName in complexityIndices):
                     complexityIndices[categoryName] = []
                 complexityIndices[categoryName].append(complexityIndexDTO)
 
     # iterate through complexity index array
-    complexityIndicesResponse = []
-    for keyCategory, indicesCategory in complexityIndices.items():
-        valences = []
-        for complexityIndex in indicesCategory:
-            valences.append(complexityIndex)
-        complexityIndicesDTO = ComplexityIndicesDTO(keyCategory, valences)
-        complexityIndicesResponse.append(complexityIndicesDTO)
-
+    complexityIndicesResponse = [
+        ComplexityIndicesDTO(category, indices) 
+        for category, indices in complexityIndices.items()
+    ]
+    texts = [
+        [sentence.text for sentence in paragraph.components]
+        for paragraph in document.components
+    ]
+    
     textualComplexityDataDTO = TextualComplexityDataDTO(
-        languageString, categoriesList, complexityIndicesResponse)
+        languageString, texts, categoriesList, complexityIndicesResponse)
 
     textualComplexityResponse = TextualComplexityResponse(
         textualComplexityDataDTO, "", True)

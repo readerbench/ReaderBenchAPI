@@ -7,10 +7,6 @@ from rb.complexity.index_category import IndexCategory
 from rb.complexity.complexity_index import compute_indices
 from rb.core.document import Document
 from rb.core.word import Word
-from rb_api.dto.textual_complexity.complexity_index_dto import ComplexityIndexDTO
-from rb_api.dto.textual_complexity.textual_complexity_data_dto import TextualComplexityDataDTO
-from rb_api.dto.textual_complexity.textual_complexity_response import TextualComplexityResponse
-from rb_api.dto.textual_complexity.complexity_indices_dto import ComplexityIndicesDTO
 from rb.similarity.vector_model import VectorModel, VectorModelType
 from rb.similarity.lsa import LSA
 from rb.similarity.lda import LDA
