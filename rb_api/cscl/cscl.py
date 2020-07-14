@@ -15,10 +15,7 @@ from rb.core.document import Document
 from rb.core.lang import Lang
 from rb.core.pos import POS
 from rb.core.text_element import TextElement
-from rb.processings.cscl.participant_evaluation import (evaluate_interaction,
-                                                        evaluate_involvement,
-                                                        evaluate_used_concepts,
-                                                        perform_sna)
+from rb.processings.cscl.participant_evaluation import evaluate_interaction, evaluate_involvement, evaluate_textual_complexity, evaluate_used_concepts, perform_sna
 from rb.processings.keywords.keywords_extractor import KeywordExtractor
 from rb.similarity.vector_model import (CorporaEnum, VectorModel,
                                         VectorModelType)
@@ -48,31 +45,24 @@ def csclPost():
     basepath = path.dirname(__file__)
     filepath = path.abspath(path.join(basepath, "..", "..", "upload", csclFile))
     conv_thread = load_from_xml(lang, filepath)
-    myCommunity = Community(lang=lang, container=None, community=[conv_thread])
+    conv = Conversation(lang=lang, conversation_thread=conv_thread)
     fr_le_monde_word2vec = create_vector_model(lang, VectorModelType.from_str("word2vec"), "le_monde_small")
-    myCommunity.graph = CnaGraph(docs=[myCommunity], models=[fr_le_monde_word2vec])
-
-    conv = myCommunity.get_conversations()[0]
-    print('Creating graph')
-    conv.container.graph = CnaGraph(docs=[conv], models=[fr_le_monde_word2vec])
-    print('Graph create')
+    conv.graph = CnaGraph(docs=[conv], models=[fr_le_monde_word2vec])
 
     participant_list = conv.get_participants()  
-    names = list(map(lambda p: p.get_id(), participant_list))
-
-    csclData = {}
+    names = [p.get_id() for p in participant_list]
+    
+    csclData = {
+        "conceptMap": {
+            "nodeList": [],
+            "edgeList": [],
+        },
+    }
 
     # Begin Concept Map
-    csclData["conceptMap"] = {}
-    csclData["conceptMap"]["nodeList"] = []
-    csclData["conceptMap"]["edgeList"] = []
     keywords_extractor = KeywordExtractor()
-    # keywords = keywords_extractor.extract_keywords(text=conv.text, lang=lang, max_keywords=40, vector_model=fr_le_monde_word2vec)
-    keywords = keywords_extractor.extract_keywords(text=conv.text, lang=lang)
-    # print(keywords)
-    for p in keywords:
-        score = p[0]
-        word = p[1]
+    keywords = keywords_extractor.extract_keywords(text=conv.text, lang=lang, vector_model=fr_le_monde_word2vec)
+    for score, word in keywords:
         posStr = word.pos.value
         csclData["conceptMap"]["nodeList"].append(
             {
@@ -83,56 +73,50 @@ def csclPost():
                 "degree": score
             }
         )
-    for p in keywords:
-        for q in keywords:
-            posWord1 = p[1].pos.value
-            posWord2 = q[1].pos.value
+    for _, p in keywords:
+        for _, q in keywords:
+            posWord1 = p.pos.value
+            posWord2 = q.pos.value
             csclData["conceptMap"]["edgeList"].append(
                 {
                     "edgeType": "SemanticDistance",
-                    "score": fr_le_monde_word2vec.similarity(p[1], q[1]),
-                    "sourceUri": p[1].lemma + '_' + posWord1,
-                    "targetUri": q[1].lemma + '_' + posWord2
+                    "score": fr_le_monde_word2vec.similarity(p, q),
+                    "sourceUri": p.lemma + '_' + posWord1,
+                    "targetUri": q.lemma + '_' + posWord2
                 }
             )
     # End Concept Map
 
-    # print('Participants are:')
-    # print(names)
-
     evaluate_interaction(conv)
-    # # conv.get_score(participant_list[0].get_id(), participant_list[1].get_id())
     evaluate_involvement(conv)
     evaluate_used_concepts(conv)
     perform_sna(conv, False)
-
-    print('Finished computing indices')
-
+    evaluate_textual_complexity(conv)
+    
     # Begin Participant Interaction Graph
-    csclData["participantInteractionGraph"] = {}
-    csclData["participantInteractionGraph"]["nodeList"] = []
-    csclData["participantInteractionGraph"]["edgeList"] = []
+    csclData["participantInteractionGraph"] = {
+        "nodeList": [],
+        "edgeList": [],
+    }
     nameIndex = {}
-    k = 0
-    for n in names:
+    for i, n in enumerate(names):
         csclData["participantInteractionGraph"]["nodeList"].append(
             {
                 "type": "Author",
-                "uri": k,
+                "uri": i,
                 "displayName": n,
                 "active": True
             },
         )
-        nameIndex[n] = k
-        k += 1
-
+        nameIndex[n] = i
+        
     for n1 in names:
         for n2 in names:
             # print('Score for ' + n1 + ' ' + n2 + ' is:')
             # print(conv.get_score(n1, n2))
             csclData["participantInteractionGraph"]["edgeList"].append(
                 {
-                    "edgeType": "SyntacticDistance",
+                    "edgeType": "SemanticDistance",
                     "score": conv.get_score(n1, n2),
                     "sourceUri": nameIndex[n1],
                     "targetUri": nameIndex[n2]
@@ -144,16 +128,15 @@ def csclPost():
     csclData["csclIndices"] = {}
     for p in participant_list:
         participantDict = {
-            "INTER_ANIMATION_DEGREE": -1,
             "SOCIAL_KB": p.get_index(CsclIndices.SOCIAL_KB),
             "INDEGREE": p.get_index(CsclIndices.INDEGREE),
             "NO_CONTRIBUTION": p.get_index(CsclIndices.NO_CONTRIBUTION),
             "SCORE": p.get_index(CsclIndices.SCORE),
-            "RHYTHMIC_COEFFICIENT": -1,
+            # "RHYTHMIC_COEFFICIENT": -1,
             "NO_VERBS":p.get_index(CsclIndices.NO_VERBS),
-            "FREQ_MAX_RHYTMIC_INDEX": -1,
-            "RHYTHMIC_INDEX": -1,
-            "PERSONAL_REGULARITY_ENTROPY": -1,
+            # "FREQ_MAX_RHYTMIC_INDEX": -1,
+            # "RHYTHMIC_INDEX": -1,
+            # "PERSONAL_REGULARITY_ENTROPY": -1,
             "OUTDEGREE": p.get_index(CsclIndices.OUTDEGREE),
             "NO_NOUNS": p.get_index(CsclIndices.NO_NOUNS)
         }
