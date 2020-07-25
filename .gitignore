@@ -126,3 +126,6 @@ dmypy.json
 
 # resources
 resources/
+
+# upload
+upload/
