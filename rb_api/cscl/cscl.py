@@ -16,9 +16,7 @@ from rb.core.document import Document
 from rb.core.lang import Lang
 from rb.core.pos import POS
 from rb.core.text_element import TextElement
-from rb.processings.cscl.participant_evaluation import (
-    evaluate_interaction, evaluate_involvement, evaluate_textual_complexity,
-    perform_sna)
+from rb.processings.cscl.participant_evaluation import evaluate_interaction, evaluate_involvement, evaluate_textual_complexity, get_block_importance, perform_sna
 from rb.processings.keywords.keywords_extractor import KeywordExtractor
 from rb.similarity.vector_model import (CorporaEnum, VectorModel,
                                         VectorModelType)
@@ -42,48 +40,62 @@ def csclPost():
     csclFile = params.get('cscl-file')
     languageString = params.get('language')
     lang = str_to_lang(languageString)
+    lsaCorpus = params.get('lsa')
+    ldaCorpus = params.get('lda')
+    word2vecCorpus = params.get('w2v')
 
     basepath = path.dirname(__file__)
     filepath = path.abspath(path.join(basepath, "..", "..", "upload", csclFile))
     conv_thread = load_from_xml(lang, filepath)
     conv = Conversation(lang=lang, conversation_thread=conv_thread, apply_heuristics=False)
-    fr_le_monde_word2vec = create_vector_model(lang, VectorModelType.from_str("word2vec"), "le_monde_small")
-    conv.graph = CnaGraph(docs=[conv], models=[fr_le_monde_word2vec])
+    vectorModels = []
+    if not "".__eq__(lsaCorpus):
+        vectorModels.append(create_vector_model(lang, VectorModelType.from_str("lsa"), lsaCorpus))
+    if not "".__eq__(ldaCorpus):
+        vectorModels.append(create_vector_model(lang, VectorModelType.from_str("lda"), ldaCorpus))
+    if not "".__eq__(word2vecCorpus):
+        vectorModels.append(create_vector_model(lang, VectorModelType.from_str("word2vec"), word2vecCorpus))
+    conv.graph = CnaGraph(docs=[conv], models=vectorModels)
 
     participant_list = conv.get_participants()  
     names = [p.get_id() for p in participant_list]
     
-    conceptMap = {
-        "nodeList": [],
-        "edgeList": [],
+    conceptMaps = {
+        'LSA': None,
+        'LDA': None,
+        'WORD2VEC': None
     }
-
     # Begin Concept Map
     keywords_extractor = KeywordExtractor()
-    keywords = keywords_extractor.extract_keywords(text=conv.text, lang=lang, vector_model=fr_le_monde_word2vec)
-    for score, word in keywords:
-        posStr = word.pos.value
-        conceptMap["nodeList"].append(
-            {
-                "type": "Word",
-                "uri": word.lemma + '_' + posStr,
-                "displayName": word.lemma,
-                "active": True,
-                "degree": score
-            }
-        )
-    for _, p in keywords:
-        for _, q in keywords:
-            posWord1 = p.pos.value
-            posWord2 = q.pos.value
-            conceptMap["edgeList"].append(
+    for vectorModel in vectorModels:
+        keywords = keywords_extractor.extract_keywords(text=conv.text, lang=lang, vector_model=vectorModel)
+        conceptMap = {
+            "nodeList": [],
+            "edgeList": [],
+        }
+        for score, word in keywords:
+            conceptMap["nodeList"].append(
                 {
-                    "edgeType": "SemanticDistance",
-                    "score": fr_le_monde_word2vec.similarity(p, q),
-                    "sourceUri": p.lemma + '_' + posWord1,
-                    "targetUri": q.lemma + '_' + posWord2
+                    "type": "Word",
+                    "uri": word.lemma + '_' + word.pos.value,
+                    "displayName": word.lemma,
+                    "active": True,
+                    "degree": score
                 }
             )
+        for _, p in keywords:
+            for _, q in keywords:
+                posWord1 = p.pos.value
+                posWord2 = q.pos.value
+                conceptMap["edgeList"].append(
+                    {
+                        "edgeType": "SemanticDistance",
+                        "score": vectorModel.similarity(p, q),
+                        "sourceUri": p.lemma + '_' + posWord1,
+                        "targetUri": q.lemma + '_' + posWord2
+                    }
+                )
+        conceptMaps[vectorModel.type.name] = conceptMap
     # End Concept Map
 
     evaluate_interaction(conv)
@@ -123,16 +135,24 @@ def csclPost():
     # Begin CSCL Indices
     csclIndices = {}
 
+    contributions = conv.get_contributions()
+    noParticipantContributions = {}
+    for index, p in enumerate(participant_list):
+        noParticipantContributions[p.get_id()] = 0
+    for index, contribution in enumerate(contributions):
+        noParticipantContributions[contribution.get_participant().get_id()] += 1
+
     for p in participant_list:
+        # adunat social kb din contributiile lui
         participantDict = {
             "SCORE": p.get_index(CNAIndices.SCORE),
             "SOCIAL_KB": p.get_index(CNAIndices.SOCIAL_KB),
             "OUTDEGREE": p.get_index(CNAIndices.OUTDEGREE),
             "INDEGREE": p.get_index(CNAIndices.INDEGREE),
-            "NO_NEW_THREADS": p.get_index(CNAIndices.NO_NEW_THREADS),
-            "NEW_THREADS_OVERALL_SCORE": p.get_index(CNAIndices.NEW_THREADS_OVERALL_SCORE),
-            "NEW_THREADS_CUMULATIVE_SOCIAL_KB": p.get_index(CNAIndices.NEW_THREADS_CUMULATIVE_SOCIAL_KB),
-            "AVERAGE_LENGTH_NEW_THREADS": p.get_index(CNAIndices.AVERAGE_LENGTH_NEW_THREADS)
+            "NO_CONTRIBUTIONS": noParticipantContributions[p.get_id()],
+            "CLOSENESS": p.get_index(CNAIndices.CLOSENESS),
+            "BETWEENNESS": p.get_index(CNAIndices.BETWEENNESS),
+            "EIGENVECTOR": p.get_index(CNAIndices.EIGENVECTOR),
         }
         csclIndices[p.get_id()] = participantDict
     # End CSCL Indices
@@ -149,7 +169,7 @@ def csclPost():
     participantImportance = {}
     for participant in participant_list:
         participantImportance[participant.get_id()] = 0
-    contributions = conv.get_contributions()
+    
     for index, contribution in enumerate(contributions):
         for participant in participant_list:
             if participant == contribution.get_participant():
@@ -165,15 +185,35 @@ def csclPost():
     # Social KB
     socialKB = []
     for index, contribution in enumerate(contributions):
+        socialKB.append(0)
+
+    for index1, contribution1 in enumerate(contributions):
+        for index2, contribution2 in enumerate(contributions[:index1]):
+            weight = get_block_importance(conv.graph.filtered_graph, contribution1, contribution2)
+            if weight > 0 and contribution1.get_participant() != contribution2.get_participant():
+                socialKB[index1] += weight
+
+    socialKBResponse = []
+    for index, contribution in enumerate(contributions):
         nodeDict = {
                 "nodeName": "",
                 "x": index,
-                "y": 0
+                "y": socialKB[index]
             }
-        socialKB.append(nodeDict)
+        socialKBResponse.append(nodeDict)
     # End Social KB
 
-    csclDataDTO = CsclDataDTO(languageString, conceptMap, csclIndices, csclIndicesDescriptions, participantEvolution, participantInteractionGraph, socialKB)
+    # Tabel dupa replici; pt fiecare replica afisam social kb, local importance, total importance
+    contributionsIndices = []
+    for index, contribution in enumerate(contributions):
+        contributionDict = {
+            "SOCIAL_KB": socialKB[index],
+            "LOCAL_IMPORTANCE": importance[contribution],
+            # "TOTAL_IMPORTANCE": importance[contribution],
+        }
+        contributionsIndices.append(contributionDict)
+
+    csclDataDTO = CsclDataDTO(languageString, conceptMaps, csclIndices, csclIndicesDescriptions, participantEvolution, participantInteractionGraph, socialKBResponse, contributionsIndices)
 
     csclResponse = CsclResponse(
         csclDataDTO, "", True)
