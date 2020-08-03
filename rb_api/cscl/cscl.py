@@ -204,14 +204,33 @@ def csclPost():
     # End Social KB
 
     # Tabel dupa replici; pt fiecare replica afisam social kb, local importance, total importance
-    contributionsIndices = []
+    sumImportance = 0
+    sumKB = 0
+    contributionsIndices = {
+        'contributions': [],
+        'total': {
+            'SOCIAL_KB': 0,
+            'LOCAL_IMPORTANCE': 0
+        }
+    }
     for index, contribution in enumerate(contributions):
+        sumKB += socialKB[index]
+        sumImportance += importance[contribution]
+        rawContrib = contribution.get_raw_contribution()
         contributionDict = {
+            "participant": contribution.get_participant().get_id(),
+            "genid": contribution.get_raw_contribution()['id'],
+            "ref": contribution.get_raw_contribution()['parent_id'],
+            "timestamp": contribution.get_timestamp(),
+            "text": contribution.get_raw_contribution()['text'],
             "SOCIAL_KB": socialKB[index],
             "LOCAL_IMPORTANCE": importance[contribution],
-            # "TOTAL_IMPORTANCE": importance[contribution],
         }
-        contributionsIndices.append(contributionDict)
+        contributionsIndices['contributions'].append(contributionDict)
+    contributionsIndices['total'] = {
+        "SOCIAL_KB": sumKB,
+        "LOCAL_IMPORTANCE": sumImportance,
+    }
 
     csclDataDTO = CsclDataDTO(languageString, conceptMaps, csclIndices, csclIndicesDescriptions, participantEvolution, participantInteractionGraph, socialKBResponse, contributionsIndices)
 
