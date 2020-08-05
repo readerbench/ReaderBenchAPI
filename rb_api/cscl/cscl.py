@@ -109,25 +109,26 @@ def csclPost():
         "edgeList": [],
     }
     nameIndex = {}
-    for i, n in enumerate(names):
+    for i, p in enumerate(participant_list):
         participantInteractionGraph["nodeList"].append(
             {
                 "type": "Author",
                 "uri": i,
-                "displayName": n,
-                "active": True
+                "displayName": p.get_id(),
+                "active": True,
+                "degree": p.get_index(CNAIndices.INTERACTION_SCORE)
             },
         )
-        nameIndex[n] = i
+        nameIndex[p.get_id()] = i
         
-    for n1 in names:
-        for n2 in names:
+    for p1 in participant_list:
+        for p2 in participant_list:
             participantInteractionGraph["edgeList"].append(
                 {
                     "edgeType": "SemanticDistance",
-                    "score": conv.get_score(n1, n2),
-                    "sourceUri": nameIndex[n1],
-                    "targetUri": nameIndex[n2]
+                    "score": conv.get_score(p1.get_id(), p2.get_id()),
+                    "sourceUri": nameIndex[p1.get_id()],
+                    "targetUri": nameIndex[p2.get_id()]
                 },
             )
     # End Participant Interaction Graph
@@ -146,6 +147,7 @@ def csclPost():
         # adunat social kb din contributiile lui
         participantDict = {
             "CONTRIBUTIONS_SCORE": p.get_index(CNAIndices.CONTRIBUTIONS_SCORE),
+            "INTERACTION_SCORE": p.get_index(CNAIndices.INTERACTION_SCORE),
             "SOCIAL_KB": p.get_index(CNAIndices.SOCIAL_KB),
             "OUTDEGREE": p.get_index(CNAIndices.OUTDEGREE),
             "INDEGREE": p.get_index(CNAIndices.INDEGREE),
