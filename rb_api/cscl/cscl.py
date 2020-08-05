@@ -145,7 +145,7 @@ def csclPost():
     for p in participant_list:
         # adunat social kb din contributiile lui
         participantDict = {
-            "SCORE": p.get_index(CNAIndices.SCORE),
+            "CONTRIBUTIONS_SCORE": p.get_index(CNAIndices.CONTRIBUTIONS_SCORE),
             "SOCIAL_KB": p.get_index(CNAIndices.SOCIAL_KB),
             "OUTDEGREE": p.get_index(CNAIndices.OUTDEGREE),
             "INDEGREE": p.get_index(CNAIndices.INDEGREE),
@@ -173,7 +173,7 @@ def csclPost():
     for index, contribution in enumerate(contributions):
         for participant in participant_list:
             if participant == contribution.get_participant():
-                participantImportance[participant.get_id()] += importance[contribution]
+                participantImportance[participant.get_id()] += importance[contribution] # suma muchiilor - de luat in core
             nodeDict = {
                 "nodeName": participant.get_id(),
                 "x": index,
