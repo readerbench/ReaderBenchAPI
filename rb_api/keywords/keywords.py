@@ -33,11 +33,11 @@ def keywordsPost():
     """TODO, not working"""
     params = json.loads(request.get_data())
     posTagging = params.get('pos-tagging')
-    dialogism = params.get('dialogism')
     bigrams = params.get('bigrams')
     text = params.get('text')
     languageString = params.get('language')
     lang = str_to_lang(languageString)
+    threshold = params.get('threshold')
 
     # if lang is Lang.RO:
     #     vector_model = VECTOR_MODELS[lang][CorporaEnum.README][VectorModelType.WORD2VEC](
@@ -58,5 +58,5 @@ def keywordsPost():
     # print(textElement.keywords)
 
     keywords_extractor = KeywordExtractor()
-    keywords = keywords_extractor.extract_keywords(text=text, lang=lang)
+    keywords = keywords_extractor.extract_keywords(text=text, lang=lang, threshold=threshold)
     return jsonify(keywords_extractor.transform_for_visualization(keywords, lang=lang))
