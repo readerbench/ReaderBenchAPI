@@ -223,7 +223,7 @@ def csclPost():
             "participant": contribution.get_participant().get_id(),
             "genid": contribution.get_raw_contribution()['id'],
             "ref": contribution.get_raw_contribution()['parent_id'],
-            "timestamp": contribution.get_timestamp(),
+            "timestamp": contribution.get_timestamp().strftime('%Y-%m-%d %H:%M:%S.%f %Z'),
             "text": contribution.get_raw_contribution()['text'],
             "SOCIAL_KB": socialKB[index],
             "LOCAL_IMPORTANCE": importance[contribution],
