@@ -25,8 +25,10 @@ from rb.similarity.vector_model_factory import (VECTOR_MODELS,
 from rb.utils.utils import str_to_lang
 from werkzeug.utils import secure_filename
 
+from rb_api.cna.graph_extractor import compute_graph_cscl
 from rb_api.dto.cscl.cscl_data_dto import CsclDataDTO
 from rb_api.dto.cscl.cscl_response import CsclResponse
+from rb.core.text_element_type import TextElementType
 
 app = Flask(__name__)
 ALLOWED_EXTENSIONS = set(['xml'])
@@ -234,7 +236,21 @@ def csclPost():
         "LOCAL_IMPORTANCE": sumImportance,
     }
 
-    csclDataDTO = CsclDataDTO(languageString, conceptMaps, csclIndices, csclIndicesDescriptions, participantEvolution, participantInteractionGraph, socialKBResponse, contributionsIndices)
+    contibutionsTexts = [contribution.get_raw_contribution()['text'] for contribution in contributions]
+    cnaModels = []
+    for model in vectorModels:
+        cnaModel = {
+            'corpus': model.corpus,
+            'model': model.type.name.lower()
+        }
+        cnaModels.append(cnaModel)
+    textLabels = [
+        'Utterance',
+        'Sentence'
+    ]
+    cnaGraph = compute_graph_cscl(texts=contibutionsTexts, lang=lang, models=cnaModels, textLabels=textLabels)
+
+    csclDataDTO = CsclDataDTO(languageString, conceptMaps, csclIndices, csclIndicesDescriptions, participantEvolution, participantInteractionGraph, socialKBResponse, contributionsIndices, cnaGraph)
 
     csclResponse = CsclResponse(
         csclDataDTO, "", True)
