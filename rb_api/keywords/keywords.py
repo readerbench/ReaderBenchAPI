@@ -1,32 +1,57 @@
-from flask import Flask, request, jsonify
 import json
-try:
-    from rb.core.text_element import TextElement
-    from rb.core.lang import Lang
-    from rb.complexity.index_category import IndexCategory
-    from rb.complexity.complexity_index import compute_indices
-    from rb.core.document import Document
-    from rb.similarity.vector_model import VectorModelType, CorporaEnum, VectorModel
-    from rb.similarity.vector_model_factory import VECTOR_MODELS
-    from rb.utils.utils import str_to_lang
-    from rb.processings.keywords.keywords_extractor import KeywordExtractor
-except:
-    import sys
-    sys.path.insert(0, '../readerbenchpy')
-    from rb.core.text_element import TextElement
-    from rb.core.lang import Lang
-    from rb.complexity.index_category import IndexCategory
-    from rb.complexity.complexity_index import compute_indices
-    from rb.core.document import Document
-    from rb.similarity.vector_model import VectorModelType, CorporaEnum, VectorModel
-    from rb.similarity.vector_model_instance import VECTOR_MODELS
-    from rb.utils.utils import str_to_lang
-    from rb.processings.keywords.keywords_extractor import KeywordExtractor
+from typing import Dict, List, Tuple
+
+from flask import Flask, jsonify, request
+from rb.complexity.complexity_index import compute_indices
+from rb.complexity.index_category import IndexCategory
+from rb.core.document import Document
+from rb.core.lang import Lang
+from rb.core.text_element import TextElement
+from rb.core.word import Word
+from rb.processings.keywords.keywords_extractor import extract_keywords
+from rb.similarity.vector_model import (CorporaEnum, VectorModel,
+                                        VectorModelType)
+from rb.similarity.vector_model_factory import VECTOR_MODELS, get_default_model
+from rb.utils.utils import str_to_lang
+
 app = Flask(__name__)
 
 
 def keywordsOption():
     return ""
+
+def transform_for_visualization(self, keywords: List[Tuple[int, Word]], lang: Lang) -> Dict:
+
+    vector_model: VectorModel = get_default_model(lang)
+    edge_list, node_list = [], []
+
+    for i, kw1 in enumerate(keywords):
+        for j, kw2 in enumerate(keywords):
+            if i != j and vector_model.similarity(kw1[1], kw2[1]) >= 0.3:
+                edge_list.append({
+                    "edgeType": "SemanticDistance",
+                    "score": str(max(vector_model.similarity(kw1[1], kw2[1]), 0)),
+                    "sourceUri": kw1[1].lemma,
+                    "targetUri": kw2[1].lemma
+                })
+
+    for kw in keywords:
+        node_list.append({
+            "type": "Word",
+            "uri": kw[1].lemma,
+            "displayName": kw[1].lemma,
+            "active": True,
+            "degree": str(max(0, float(kw[0])))
+        })
+
+    return {
+        "data": {
+            "edgeList": edge_list,
+            "nodeList": node_list
+        },
+        "success": True,
+        "errorMsg": ""
+    }
 
 
 def keywordsPost():
@@ -57,6 +82,5 @@ def keywordsPost():
     # textElement = Document(lang=lang, text=text, vector_model=vector_model)
     # print(textElement.keywords)
 
-    keywords_extractor = KeywordExtractor()
-    keywords = keywords_extractor.extract_keywords(text=text, lang=lang, threshold=threshold)
-    return jsonify(keywords_extractor.transform_for_visualization(keywords, lang=lang))
+    keywords = extract_keywords(text=text, lang=lang, threshold=threshold)
+    return jsonify(transform_for_visualization(keywords, lang=lang))
