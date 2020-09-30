@@ -48,7 +48,7 @@ def csclPost():
 
     basepath = path.dirname(__file__)
     filepath = path.abspath(path.join(basepath, "..", "..", "upload", csclFile))
-    conv_thread = load_from_xml(lang, filepath)
+    conv_thread = load_from_xml(filepath)
     conv = Conversation(lang=lang, conversation_thread=conv_thread, apply_heuristics=False)
     vectorModels = []
     if not "".__eq__(lsaCorpus):
