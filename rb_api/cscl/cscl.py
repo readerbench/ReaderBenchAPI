@@ -84,12 +84,15 @@ def csclPost():
                     "degree": score
                 }
             )
+        vectors = {}
+        for _, keyword in keywords:
+            vectors[keyword] = vectorModel.get_vector(keyword)
         for _, keyword1 in keywords:
             for _, keyword2 in keywords:
                 conceptMap["edgeList"].append(
                     {
                         "edgeType": "SemanticDistance",
-                        "score": vectorModel.similarity(keyword1, keyword2),
+                        "score": vectorModel.similarity(vectors[keyword1], vectors[keyword2]),
                         "sourceUri": keyword1,
                         "targetUri": keyword2
                     }
