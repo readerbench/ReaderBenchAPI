@@ -78,22 +78,20 @@ def csclPost():
             conceptMap["nodeList"].append(
                 {
                     "type": "Word",
-                    "uri": word.lemma + '_' + word.pos.value,
-                    "displayName": word.lemma,
+                    "uri": word,
+                    "displayName": word,
                     "active": True,
                     "degree": score
                 }
             )
-        for _, p in keywords:
-            for _, q in keywords:
-                posWord1 = p.pos.value
-                posWord2 = q.pos.value
+        for _, keyword1 in keywords:
+            for _, keyword2 in keywords:
                 conceptMap["edgeList"].append(
                     {
                         "edgeType": "SemanticDistance",
-                        "score": vectorModel.similarity(p, q),
-                        "sourceUri": p.lemma + '_' + posWord1,
-                        "targetUri": q.lemma + '_' + posWord2
+                        "score": vectorModel.similarity(keyword1, keyword2),
+                        "sourceUri": keyword1,
+                        "targetUri": keyword2
                     }
                 )
         conceptMaps[vectorModel.type.name] = conceptMap
