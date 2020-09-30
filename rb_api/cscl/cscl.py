@@ -118,7 +118,7 @@ def csclPost():
                 "uri": i,
                 "displayName": p.get_id(),
                 "active": True,
-                "degree": p.get_index(CNAIndices.INTERACTION_SCORE)
+                "degree": p.get_index(CNAIndices.INDEGREE) + p.get_index(CNAIndices.OUTDEGREE)
             },
         )
         nameIndex[p.get_id()] = i
@@ -149,7 +149,7 @@ def csclPost():
         # adunat social kb din contributiile lui
         participantDict = {
             "CONTRIBUTIONS_SCORE": p.get_index(CNAIndices.CONTRIBUTIONS_SCORE),
-            "INTERACTION_SCORE": p.get_index(CNAIndices.INTERACTION_SCORE),
+            # "INTERACTION_SCORE": p.get_index(CNAIndices.INTERACTION_SCORE),
             "SOCIAL_KB": p.get_index(CNAIndices.SOCIAL_KB),
             "OUTDEGREE": p.get_index(CNAIndices.OUTDEGREE),
             "INDEGREE": p.get_index(CNAIndices.INDEGREE),
