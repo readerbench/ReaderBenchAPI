@@ -27,7 +27,7 @@ def transform_for_visualization(keywords: List[Tuple[int, Word]], lang: Lang) ->
 
     for i, kw1 in enumerate(keywords):
         for j, kw2 in enumerate(keywords):
-            sim = vector_model.similarity(vector_model.get_vector(kw1[1]), vector_model.get_vector(kw2[1]))
+            sim = vector_model.similarity(vector_model.get_vector(kw1[1].lemma), vector_model.get_vector(kw2[1].lemma))
             if i != j and sim >= 0.3:
                 edge_list.append({
                     "edgeType": "SemanticDistance",
