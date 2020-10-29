@@ -27,10 +27,10 @@ def transform_for_visualization(keywords: List[Tuple[int, Word]], lang: Lang) ->
 
     for i, kw1 in enumerate(keywords):
         for j, kw2 in enumerate(keywords):
-            if i != j and vector_model.similarity(kw1[1], kw2[1]) >= 0.3:
+            if i != j and (sim := vector_model.similarity(vector_model.get_vector(kw1[1]), vector_model.get_vector(kw2[1]))) >= 0.3:
                 edge_list.append({
                     "edgeType": "SemanticDistance",
-                    "score": str(max(vector_model.similarity(kw1[1], kw2[1]), 0)),
+                    "score": str(max(sim, 0)),
                     "sourceUri": kw1[1].lemma,
                     "targetUri": kw2[1].lemma
                 })
