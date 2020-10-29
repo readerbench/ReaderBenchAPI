@@ -83,4 +83,4 @@ def keywordsPost():
     # print(textElement.keywords)
 
     keywords = extract_keywords(text=text, lang=lang, threshold=threshold)
-    return jsonify(transform_for_visualization(keywords, lang=lang))
+    return jsonify(transform_for_visualization(keywords=keywords, lang=lang))
