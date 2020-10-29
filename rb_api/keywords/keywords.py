@@ -20,7 +20,7 @@ app = Flask(__name__)
 def keywordsOption():
     return ""
 
-def transform_for_visualization(self, keywords: List[Tuple[int, Word]], lang: Lang) -> Dict:
+def transform_for_visualization(keywords: List[Tuple[int, Word]], lang: Lang) -> Dict:
 
     vector_model: VectorModel = get_default_model(lang)
     edge_list, node_list = [], []
