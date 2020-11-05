@@ -16,7 +16,6 @@ import rb_api.textual_complexity.textual_complexity as textual_complexity
 import rb_api.feedback.feedback as feedback
 from rb_api.cna.graph_extractor import compute_graph
 from rb_api.cscl import cscl
-
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
@@ -136,8 +135,9 @@ def feedbackPost():
     params = json.loads(request.get_data())
     text = params.get('text')
     response = dict()
-    response['feedback'] = feedback.automatic_feedback(text)
-    response['score'] = feedback.automatic_scoring(text)
+    doc_indices = feedback.compute_textual_indices(text)
+    response['feedback'] = feedback.automatic_feedback(doc_indices)
+    response['score'] = feedback.automatic_scoring(doc_indices)
     response = success(response)
     return generate_response(response)
 
