@@ -40,6 +40,9 @@ def textualComplexityPost():
     elif lang is Lang.ES:
         vector_model = VECTOR_MODELS[lang][CorporaEnum.JOSE_ANTONIO][VectorModelType.WORD2VEC](
             name=CorporaEnum.JOSE_ANTONIO.value, lang=lang)
+    elif lang is Lang.FR:
+        vector_model = VECTOR_MODELS[lang][CorporaEnum.LE_MONDE][VectorModelType.WORD2VEC](
+            name=CorporaEnum.LE_MONDE.value, lang=lang)
     elif lang is Lang.RU:
         vector_model = VECTOR_MODELS[lang][CorporaEnum.RNC_WIKIPEDIA][VectorModelType.WORD2VEC](
             name=CorporaEnum.RNC_WIKIPEDIA.value, lang=lang)
