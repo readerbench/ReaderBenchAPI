@@ -1,18 +1,18 @@
-from sklearn.model_selection import train_test_split
-from sklearn import ensemble
-from sklearn.metrics import mean_squared_error, cohen_kappa_score
-
-import pandas as pd
-import statistics
-from sklearn.decomposition import PCA
 import json
-import numpy as np
+import pickle
+import statistics
 
+import numpy as np
+import pandas as pd
 from rb.cna.cna_graph import CnaGraph
 from rb.complexity.complexity_index import compute_indices
 from rb.core.document import Document
 from rb.core.lang import Lang
 from rb.similarity.vector_model_factory import get_default_model
+from sklearn import ensemble
+from sklearn.decomposition import PCA
+from sklearn.metrics import cohen_kappa_score, mean_squared_error
+from sklearn.model_selection import train_test_split
 
 
 def prepare_dataset(filename):
@@ -34,7 +34,6 @@ def gradient_boosting_regression(X, y):
     MeanSquaredError = mean_squared_error(y_test, y_pred)
     VarinaceScore = gbr.score(X_test, y_test)
     CohenKappaScore = cohen_kappa_score(np.rint(y_pred), np.rint(y_test))
-
     return gbr, MeanSquaredError, VarinaceScore, CohenKappaScore
 
 
@@ -46,14 +45,15 @@ def compute_textual_indices(text):
     return doc.indices
 
 
-def automatic_scoring(text):
+def automatic_scoring(doc_indices):
     url = 'rb_api/feedback/textual_indices.csv'
     X, y = prepare_dataset(url)
-    model, _, _, _ = gradient_boosting_regression(X, y)
-    features = X.columns
-    indices = compute_textual_indices(text)
+    with open("rb_api/feedback/gbr.pkl", "rb") as f:
+        model = pickle.load(f)
+    # model, _, _, _ = gradient_boosting_regression(X, y)
+    features = set(X.columns)
     used_features = {}
-    for key, value in indices.items():
+    for key, value in doc_indices.items():
         if str(key) in features:
             used_features.update({str(key): [value]})
     new_doc_df = pd.DataFrame.from_dict(used_features)
@@ -151,19 +151,21 @@ def create_PCA(dataset):
     return pca, principal_data_frame
 
 
-def compute_PCA_on_new_text(text):
-    url = 'rb_api/feedback/textual_indices.csv'
+def compute_PCA_on_new_text(doc_indices):
+    url = 'rb_api/feedback/pca_textual_indices.csv'
     dataset = pd.read_csv(url)
-    dataset = filter_rare(dataset)
-    dataset = remove_outliers(dataset)
-    dataset = prune_Skewness_Kurtosis(dataset)
-    dataset = remove_corelated_indices(dataset)
-    pca, pca_dataset = create_PCA(dataset)
-
-    features = dataset.columns
-    docIndices = compute_textual_indices(text)
+    dataset = dataset.drop(columns=['Unnamed: 0'])
+    # dataset = filter_rare(dataset)
+    # dataset = remove_outliers(dataset)
+    # dataset = prune_Skewness_Kurtosis(dataset)
+    # dataset = remove_corelated_indices(dataset)
+    # dataset.to_csv('rb_api/feedback/pca_textual_indices.csv')
+    # pca, pca_dataset = create_PCA(dataset)
+    with open('rb_api/feedback/pca.pkl', "rb") as f:
+        pca = pickle.load(f)
+    features = set(dataset.columns)
     indices = {}
-    for key, value in docIndices.items():
+    for key, value in doc_indices.items():
         if str(key) in features:
             indices.update({str(key): [value]})
     dataFrame = pd.DataFrame.from_dict(indices)
@@ -176,27 +178,17 @@ def compute_PCA_on_new_text(text):
     return pca_result
 
 
-def compute_textual_indices(text):
-    model = get_default_model(Lang.RO)
-    doc = Document(Lang.RO, text)
-    cna_graph = CnaGraph(docs=doc, models=[model])
-    compute_indices(doc=doc, cna_graph=cna_graph)
-    return doc.indices
-
-
 def get_feedback_metrics(url):
-    f = open(url, encoding="UTF-8")
-    feedback_metrics = json.load(f)
-    f.close()
+    with open(url, encoding="UTF-8") as f:
+        feedback_metrics = json.load(f)
     return feedback_metrics
 
 
-def automatic_feedback(text):
+def automatic_feedback(doc_indices):
     url = 'rb_api/feedback/feedback_rules.json'
     feedback_metrics = get_feedback_metrics(url)
-    docIndices = compute_textual_indices(text)
     indices = {}
-    for key, value in docIndices.items():
+    for key, value in doc_indices.items():
         indices.update({str(key): value})
     feedback = []
     for metric in feedback_metrics['document']:
@@ -211,7 +203,7 @@ def automatic_feedback(text):
                 'description': metric['feedbackMessagesHigh']
             })
 
-    pca_indices = compute_PCA_on_new_text(text)
+    pca_indices = compute_PCA_on_new_text(doc_indices)
     for metric in feedback_metrics['pca']:
         if pca_indices[metric['id']] <= metric['min']:
             feedback.append({
@@ -223,5 +215,4 @@ def automatic_feedback(text):
                 'name': metric['name'],
                 'description': metric['feedbackMessagesHigh']
             })
-
     return feedback
