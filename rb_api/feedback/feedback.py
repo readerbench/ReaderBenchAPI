@@ -1,3 +1,4 @@
+from rb.similarity.vector_model import VectorModelType
 from sklearn.model_selection import train_test_split
 from sklearn import ensemble
 
@@ -13,7 +14,7 @@ from rb.cna.cna_graph import CnaGraph
 from rb.complexity.complexity_index import compute_indices
 from rb.core.document import Document
 from rb.core.lang import Lang
-from rb.similarity.vector_model_factory import get_default_model
+from rb.similarity.vector_model_factory import get_default_model, create_vector_model
 from sklearn.metrics import cohen_kappa_score, mean_squared_error
 from scipy.stats import zscore
 
@@ -59,7 +60,7 @@ def compute_textual_indices(text):
             sent.append(s.text)
         block.append({'text': b.text, 'sentences': sent})
 
-    text = {
+    feedback_text = {
         'doc': doc.text,
         'blocks': block
     }
@@ -68,7 +69,7 @@ def compute_textual_indices(text):
     blocks = [block.indices for block in doc.get_blocks()]
 
     return {
-            'text': text,
+            'text': feedback_text,
             'indices': {
                 'document': doc.indices,
                 'sentence': sentences,
@@ -297,6 +298,7 @@ def automatic_feedback(doc_indices):
     feedback_metrics = get_feedback_metrics(url)
 
     return {
+        'text': doc_indices['text'],
         'document': automatic_feedback_granularity(doc_indices['indices']['document'], 'document', feedback_metrics),
         'sentence': [automatic_feedback_granularity(ind, 'sentence', feedback_metrics) for ind in doc_indices['indices']['sentence']],
         'block': [automatic_feedback_granularity(ind, 'block', feedback_metrics) for ind in doc_indices['indices']['block']],
