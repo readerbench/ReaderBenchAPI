@@ -1,5 +1,6 @@
 import json
 import os
+from rb_api.sentiment.sentiment_models import sentiment_post
 import uuid
 
 from flask import Flask, jsonify, request, Response
@@ -141,6 +142,13 @@ def feedbackPost():
     response = success(response)
     return generate_response(response)
 
+@app.route("/api/v1/sentiment", methods=['OPTIONS'])
+def predict_sentiment_option():
+    return ""
+
+@app.route("/api/v1/sentiment", methods=['POST'])
+def predict_sentiment_post():
+    return sentiment_post(request)
 
 def generate_response(response):
     response.headers.add('Access-Control-Allow-Origin', '*')
