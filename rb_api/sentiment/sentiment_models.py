@@ -48,4 +48,4 @@ def sentiment_post(request):
     if not model:
         return SentimentResponse(data="", errorMsg="Model doesn't exist", success=False).toJSON()
     prediction = model.process_text(text)
-    return SentimentResponse(data={"prediction": prediction}, errorMsg="", success=True).toJSON()
+    return SentimentResponse(data={"prediction": prediction[0]}, errorMsg="", success=True).toJSON()
