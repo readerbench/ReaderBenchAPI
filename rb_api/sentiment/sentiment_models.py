@@ -21,6 +21,8 @@ class SentimentModelsCache():
         self.models: Dict[Lang, Dict[str, SentimentAnalysis]] = {}
     
     def get_model(self, lang: Lang, model_name: str):
+        if lang is not Lang.RO:
+            lang = Lang.EN
         if lang not in self.models or model_name not in self.models[lang]:
             try:
                 model = SentimentAnalysis(lang, model_name, 256)
