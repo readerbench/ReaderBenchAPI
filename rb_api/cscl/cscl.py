@@ -1,6 +1,7 @@
 import json
 import os
 from os import path
+from rb_api.keywords.keywords import transform_for_visualization
 from time import time
 
 from flask import Flask, Response, jsonify, request
@@ -42,9 +43,9 @@ def csclPost():
     csclFile = params.get('cscl-file')
     languageString = params.get('language')
     lang = str_to_lang(languageString)
-    lsaCorpus = params.get('lsa')
-    ldaCorpus = params.get('lda')
-    word2vecCorpus = params.get('w2v')
+    lsaCorpus = params.get('lsa').lower()
+    ldaCorpus = params.get('lda').lower()
+    word2vecCorpus = params.get('w2v').lower()
 
     basepath = path.dirname(__file__)
     filepath = path.abspath(path.join(basepath, "..", "..", "upload", csclFile))
@@ -67,37 +68,11 @@ def csclPost():
         'LDA': None,
         'WORD2VEC': None
     }
+
     # Begin Concept Map
-    for vectorModel in vectorModels:
-        keywords = extract_keywords(text=conv.text, lang=lang, vector_model=vectorModel)
-        conceptMap = {
-            "nodeList": [],
-            "edgeList": [],
-        }
-        for score, word in keywords:
-            conceptMap["nodeList"].append(
-                {
-                    "type": "Word",
-                    "uri": word,
-                    "displayName": word,
-                    "active": True,
-                    "degree": score
-                }
-            )
-        vectors = {}
-        for _, keyword in keywords:
-            vectors[keyword] = vectorModel.get_vector(keyword)
-        for _, keyword1 in keywords:
-            for _, keyword2 in keywords:
-                conceptMap["edgeList"].append(
-                    {
-                        "edgeType": "SemanticDistance",
-                        "score": vectorModel.similarity(vectors[keyword1], vectors[keyword2]),
-                        "sourceUri": keyword1,
-                        "targetUri": keyword2
-                    }
-                )
-        conceptMaps[vectorModel.type.name] = conceptMap
+    keywords = extract_keywords(text=conv.text, lang=lang)
+    keywordsTransformed = transform_for_visualization(keywords=keywords, lang=lang)
+    conceptMaps['coca'] = keywordsTransformed['data']
     # End Concept Map
 
     evaluate_interaction(conv)
