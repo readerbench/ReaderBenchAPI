@@ -6,7 +6,7 @@ from rb_api.dto.two_mode_graph.two_mode_graph_edge_dto import TwoModeGraphEdgeDT
 from rb_api.dto.amoc.cm_word_result_dto import CMWordResultDTO
 from rb_api.dto.amoc.cm_word_activation_result_dto import CMWordActivationResultDTO
 
-from rb.similarity.vector_model import VectorModel
+from rb.similarity.word_vector_model import WordVectorModel
 from rb.comprehension.comprehension_model import ComprehensionModel
 from rb.comprehension.utils.graph.cm_node_type import CmNodeType
 from rb.comprehension.utils.graph.cm_edge_type import CmEdgeType
@@ -15,7 +15,7 @@ from rb.comprehension.utils.memory.word_activation import WordActivation
 from rb.core.word import Word
 from rb.core.lang import Lang
 from typing import List, Dict
-SemanticModels = List[VectorModel]
+SemanticModels = List[WordVectorModel]
 ListOfActivations = List[Dict[Word, WordActivation]]
 
 
