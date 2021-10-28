@@ -2,14 +2,12 @@ from typing import Dict, List
 
 from rb.cna.cna_graph import CnaGraph
 from rb.cna.edge_type import EdgeType
-from rb.core.document import Document
 from rb.core.block import Block
+from rb.core.document import Document
 from rb.core.lang import Lang
 from rb.core.text_element import TextElement
 from rb.similarity.vector_model import VectorModelType
 from rb.similarity.vector_model_factory import create_vector_model
-from rb.similarity.word2vec import Word2Vec
-from rb.core.text_element_type import TextElementType
 
 
 def encode_element(element: TextElement, names: Dict[TextElement, str], graph: CnaGraph):
@@ -22,6 +20,10 @@ def compute_graph(texts: List[str], lang: Lang, models: List) -> str:
     docs = [Document(lang=lang, text=text) for text in texts]
     models = [create_vector_model(lang, VectorModelType.from_str(model["model"]), model["corpus"]) for model in models]
     models = [model for model in models if model is not None]
+    for model in models:
+        if model.type == VectorModelType.TRANSFORMER:
+            for doc in docs:
+                model.encode(doc)
     graph = CnaGraph(docs=docs, models=models)
     sentence_index = 1
     doc_index = 1
