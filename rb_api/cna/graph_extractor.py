@@ -17,7 +17,7 @@ def encode_element(element: TextElement, names: Dict[TextElement, str], graph: C
     return result
 
 def compute_graph(texts: List[str], lang: Lang, models: List) -> str:
-    docs = [Document(lang=lang, text=text) for text in texts]
+    docs = [Document(lang=lang, text=text) for text in texts if text.strip()]
     models = [create_vector_model(lang, VectorModelType.from_str(model["model"]), model["corpus"]) for model in models]
     models = [model for model in models if model is not None]
     for model in models:
