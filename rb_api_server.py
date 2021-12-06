@@ -10,6 +10,7 @@ from werkzeug.utils import secure_filename
 
 import rb_api.amoc.amoc as amoc
 import rb_api.keywords.keywords as keywords
+from rb_api.aes_ru.russian_a_vs_b import RussianAvsB
 # import rb_api.diacritics.diacritics as diacritics
 import rb_api.text_similarity.text_similarity as text_similarity
 import rb_api.mass_customization.mass_customization as mass_customization
@@ -149,6 +150,18 @@ def predict_sentiment_option():
 @app.route("/api/v1/sentiment", methods=['POST'])
 def predict_sentiment_post():
     return sentiment_post(request)
+
+@app.route("/api/v1/ru_aes", methods=['POST'])
+def predict_ru_a_vs_b():
+    params = json.loads(request.get_data())
+    text = params.get('text', None)
+    if not text:
+        return generate_response(error("text argument is required"))
+    response = dict()
+    r = RussianAvsB(model_path="rb_api/aes_ru/AvsB_ru", rb_indices_path="rb_api/aes_ru/ru_indices.list")
+    response["class"] = r.predict(text)
+    response = success(response)
+    return generate_response(response)
 
 def generate_response(response):
     response.headers.add('Access-Control-Allow-Origin', '*')
