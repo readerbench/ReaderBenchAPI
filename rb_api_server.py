@@ -10,7 +10,7 @@ from werkzeug.utils import secure_filename
 
 import rb_api.amoc.amoc as amoc
 import rb_api.keywords.keywords as keywords
-from rb_api.aes_ru.russian_a_vs_b import RussianAvsB
+from rb_api.aes.russian_a_vs_b import RussianAvsB
 # import rb_api.diacritics.diacritics as diacritics
 import rb_api.text_similarity.text_similarity as text_similarity
 import rb_api.mass_customization.mass_customization as mass_customization
