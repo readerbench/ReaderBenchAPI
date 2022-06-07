@@ -1,0 +1,7 @@
+version: '2'
+services:
+  readerbench-postgres:
+    container_name: readerbench-postgres
+    build: ./postgres
+    ports:
+      - "5432:5432"

@@ -1,8 +1,0 @@
-pandas
-absl-py
-beautifulsoup4
-cachelib
-flask
-flask-cors
-rbpy-rb
-werkzeug>=1
