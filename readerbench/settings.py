@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'users',
     'oauth2_provider',
     'rest_framework',
+    'services',
 ]
 
 AUTH_USER_MODEL='users.User'

@@ -15,6 +15,7 @@ psycopg2==2.9.3
 pycparser==2.21
 pyserial==3.5
 pytz==2022.1
+rbpy-rb>=0.11.2
 requests==2.27.1
 six==1.16.0
 sqlparse==0.4.2
