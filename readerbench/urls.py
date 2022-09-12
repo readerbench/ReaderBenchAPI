@@ -19,7 +19,10 @@ from django.contrib.auth import get_user_model
 from rest_framework import generics, permissions, serializers
 from oauth2_provider.contrib.rest_framework import TokenHasReadWriteScope
 
-from services.views import get_indices
+from services.views import (get_indices, ro_correct_text, feedbackPost, 
+                            fluctuations, keywords, keywordsHeatmap, 
+                            syllables, similar_concepts, get_hypernyms,
+                            restore_diacritics, clasify_aes)
 
 # Serializers
 class UserSerializer(serializers.ModelSerializer):
@@ -39,5 +42,15 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     path('users/me', CurrentUser.as_view()),
-    path('services/indices', get_indices)
+    path('services/indices', get_indices),
+    path('services/ro-correct-text', ro_correct_text),
+    path('services/feedback', feedbackPost),
+    path('services/fluctuations', fluctuations),
+    path('services/keywords', keywords),
+    path('services/keywords-heatmap', keywordsHeatmap),
+    path('services/similar-concepts', similar_concepts),
+    path('services/hypernyms', get_hypernyms),
+    path('services/syllables', syllables),
+    path('services/diacritics', restore_diacritics),
+    path('services/aes', clasify_aes)
 ]
