@@ -1,33 +1,39 @@
 from typing import Dict
 
+import rb
 from django.http import JsonResponse
 from django.shortcuts import render
-
 from rb import Document, Lang
 from rb.cna.cna_graph import CnaGraph
 from rb.complexity.complexity_index import compute_indices
+from rb.core.cscl.contribution import Contribution
+from rb.core.cscl.conversation import Conversation
+from rb.core.cscl.cscl_parser import load_from_xml
 from rb.core.text_element import TextElement, TextElementType
+from rb.processings.cscl.participant_evaluation import (
+    evaluate_interaction, evaluate_involvement, evaluate_textual_complexity,
+    perform_sna)
+from rb.processings.diacritics.DiacriticsRestoration import \
+    DiacriticsRestoration
+from rb.processings.keywords.keywords_extractor import extract_keywords
+from rb.similarity.similar_concepts import get_similar_concepts
 from rb.similarity.transformers_encoder import TransformersEncoder
 from rb.similarity.vector_model import VectorModelType
 from rb.similarity.vector_model_factory import create_vector_model
-from rb.similarity.similar_concepts import get_similar_concepts
 from rb.utils.utils import str_to_lang
-from rb.processings.keywords.keywords_extractor import extract_keywords
-from rb.processings.diacritics.DiacriticsRestoration import DiacriticsRestoration
-import rb
-
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from services.subject_predicate.correct import ro_language_correct, language_correct
 from services.feedback import feedback
-from services.readme_misc.similarity import get_hypernymes_grouped_by_synset
-from services.readme_misc.universal_text_extractor import extract_raw_text
 from services.readme_misc.fluctuations import calculate_indices
 from services.readme_misc.keywords import *
+from services.readme_misc.similarity import get_hypernymes_grouped_by_synset
+from services.readme_misc.universal_text_extractor import extract_raw_text
 from services.readme_misc.utils import find_mistakes_intervals
-from services.syllables.syllables import syllabify
 from services.russian_a_vs_b.ru_a_vs_b import RussianAvsB
+from services.subject_predicate.correct import (language_correct,
+                                                ro_language_correct)
+from services.syllables.syllables import syllabify
 
 
 def build_text_element_result(elem: TextElement) -> Dict:
@@ -190,3 +196,78 @@ def clasify_aes(request):
     text = data['text']
     r = RussianAvsB(model_path="services/binaries/ru_aes/AvsB_ru", rb_indices_path="services/binaries/ru_aes/ru_indices.list")
     return JsonResponse({'class': r.predict(text)})
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def process_cscl(request):
+    conv_dict = load_from_xml(request.FILES.get("file"))
+    lang = request.data["lang"]
+    lang = str_to_lang(lang)
+    model = create_vector_model(lang, VectorModelType.TRANSFORMER, None)
+    conv = Conversation(Lang.FR, conv_dict, apply_heuristics=False)
+    model.encode(conv)
+    conv.graph = CnaGraph(conv, models=[model])
+    evaluate_interaction(conv)
+    evaluate_involvement(conv)
+    evaluate_textual_complexity(conv)
+    participant_graph = perform_sna(conv, False)
+
+    contr_kb = {
+        contribution: 0
+        for contribution in conv.components
+    }
+    contr_in = {
+        contribution: 0
+        for contribution in conv.components
+    }
+    contr_out = {
+        contribution: 0
+        for contribution in conv.components
+    }
+    contr_edges = []
+    for u, v, w in conv.graph.filtered_graph.edges.data('weight', default=None):
+        if isinstance(u, Contribution) and isinstance(v, Contribution):
+            contr_in[v] += w
+            contr_out[u] += w
+            contr_edges.append({
+                "source": u.index, 
+                "target": v.index,
+                "weight": w
+            })
+            if u.get_participant() != v.get_participant():
+                contr_kb[u] += w
+                contr_kb[v] += w
+
+    result = {
+        "graph": {
+            "participants": [p.get_id() for p in participant_graph.nodes],
+            "edges": [
+                {
+                    "source": a.get_id(), 
+                    "target": b.get_id(),
+                    "weight": w
+                }
+                for a, b, w in participant_graph.edges.data("weight")
+            ]
+        }, 
+        "participants": {
+            p.get_id(): {str(index): value for index, value in p.indices.items()}
+            for p in conv.get_participants()
+        },
+        "contributions": [
+            {
+                "id": c.index,
+                "text": c.text,
+                "participant": c.get_participant().get_id(),
+                "ref": c.parent_contribution.index if c.parent_contribution is not None else None,
+                "time": c.timestamp.isoformat(),
+                "importance": conv.graph.importance[c],
+                "social_kb": contr_kb[c],
+                "in_degree": contr_in[c],
+                "out_degree": contr_out[c]
+            }
+            for c in conv.components
+        ],
+        "contribution_edges": contr_edges
+    }
+    return JsonResponse(result, safe=False)
