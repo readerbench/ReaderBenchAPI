@@ -1,3 +1,4 @@
+import datetime
 from typing import Dict
 
 import rb
@@ -204,12 +205,11 @@ def process_cscl(request):
     lang = request.data["lang"]
     lang = str_to_lang(lang)
     model = create_vector_model(lang, VectorModelType.TRANSFORMER, None)
-    conv = Conversation(Lang.FR, conv_dict, apply_heuristics=False)
+    conv = Conversation(lang, conv_dict, apply_heuristics=False)
     model.encode(conv)
-    conv.graph = CnaGraph(conv, models=[model])
+    conv.graph = CnaGraph(conv, models=[model], pairwise=False, window=30)
     evaluate_interaction(conv)
     evaluate_involvement(conv)
-    evaluate_textual_complexity(conv)
     participant_graph = perform_sna(conv, False)
 
     contr_kb = {
@@ -270,4 +270,5 @@ def process_cscl(request):
         ],
         "contribution_edges": contr_edges
     }
+    
     return JsonResponse(result, safe=False)
