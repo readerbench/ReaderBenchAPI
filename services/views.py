@@ -1,9 +1,12 @@
 import datetime
+from os import makedirs, rmdir
+import os
 from typing import Dict
+import zipfile
 
 import rb
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from rb import Document, Lang
 from rb.cna.cna_graph import CnaGraph
 from rb.complexity.complexity_index import compute_indices
@@ -26,10 +29,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from services.feedback import feedback
+from services.models import Dataset, Language
 from services.readme_misc.fluctuations import calculate_indices
 from services.readme_misc.keywords import *
 from services.readme_misc.similarity import get_hypernymes_grouped_by_synset
-from services.readme_misc.universal_text_extractor import extract_raw_text
 from services.readme_misc.utils import find_mistakes_intervals
 from services.russian_a_vs_b.ru_a_vs_b import RussianAvsB
 from services.subject_predicate.correct import (language_correct,
@@ -272,3 +275,40 @@ def process_cscl(request):
     }
     
     return JsonResponse(result, safe=False)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def add_dataset(request):
+    try:
+        data = request.FILES.get("zipfile")
+        targets = request.FILES.get("csvfile")
+        lang_id = request.data["lang"]
+        lang = get_object_or_404(Language, pk=lang_id)
+        name = request.POST["name"]
+        task = request.POST ["task"]
+        dataset = Dataset()
+        dataset.name = name
+        dataset.task = task
+        dataset.user_id = 1
+        dataset.lang = lang
+        dataset.save()
+        os.makedirs(f"data/datasets/{dataset.pk}/texts")
+        with open(f"data/datasets/{dataset.pk}/targets.csv", "wb") as f:
+            for chunk in targets.chunks():
+                f.write(chunk)
+        with zipfile.ZipFile(data) as f:
+            for zip_info in f.infolist():
+                if zip_info.filename[-1] == '/':
+                    continue
+                zip_info.filename = os.path.basename(zip_info.filename)
+                f.extract(zip_info, f"data/datasets/{dataset.pk}/texts")
+        return JsonResponse({"id": dataset.pk})
+    except Exception as ex:
+        if 'dataset' in locals() and dataset.pk is not None:
+            rmdir(f"data/datasets/{dataset.pk}")
+            dataset.delete()
+        return JsonResponse({'status': 'ERROR', 'error_code': 'add_operation_failed', 'message': 'The dataset could not be saved'}, status=500)
+ 
+
+    
+

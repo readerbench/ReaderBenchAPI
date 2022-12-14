@@ -4,4 +4,5 @@ django-oauth-toolkit
 djangorestframework
 psycopg2
 rbpy-rb>=0.11.2
+rowordnet
 tf2crf
