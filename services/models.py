@@ -12,3 +12,16 @@ class Dataset(models.Model):
     lang = models.ForeignKey(Language, on_delete=models.CASCADE)
     num_rows = models.IntegerField(default=0)
     num_cols = models.IntegerField(default=0)
+
+class JobType(models.Model):
+    label = models.CharField(max_length=20)
+
+class JobStatus(models.Model):
+    label = models.CharField(max_length=20)
+
+class Job(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    type = models.ForeignKey(JobType, on_delete=models.CASCADE)
+    status = models.ForeignKey(JobStatus, on_delete=models.CASCADE)
+    params = models.TextField(default="{}")
+    results = models.TextField(default="{}")

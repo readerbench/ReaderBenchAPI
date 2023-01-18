@@ -3,10 +3,18 @@
 from django.conf import settings
 from django.db import migrations, models
 import django.db.models.deletion
+from rb import Lang
+from services.models import Language
 
-from services.utils import init_languages
+def init_languages(apps, schema_editor):
+    for lang in Lang:
+        obj = Language()
+        obj.label = lang.name
+        obj.save()
 
-
+def delete_languages(apps, schema_editor):
+    Language.objects.raw(f"truncate table {Language._meta.db_table} cascade")
+    
 class Migration(migrations.Migration):
 
     initial = True
@@ -35,5 +43,5 @@ class Migration(migrations.Migration):
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
             ],
         ),
-        migrations.RunPython(init_languages)
+        migrations.RunPython(code=init_languages, reverse_code=delete_languages)
     ]

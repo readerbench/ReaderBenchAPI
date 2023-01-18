@@ -30,7 +30,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from services.feedback import feedback
-from services.models import Dataset, Language
+from services.models import Dataset, Job, Language
 from services.readme_misc.fluctuations import calculate_indices
 from services.readme_misc.keywords import *
 from services.readme_misc.similarity import get_hypernymes_grouped_by_synset
@@ -351,6 +351,25 @@ def get_languages(request):
         ]
         return JsonResponse({"languages": languages}, safe=False)
     except Exception as ex:
-        return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error while retrieving datasets'}, status=500)
+        return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error while retrieving languages'}, status=500)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def get_jobs(request):
+    try:
+        user_id = request.user.id if request.user.id is not None else 1
+        jobs = [
+            {
+                "id": job.id,
+                "status": job.status_id,
+                "type": job.type_id,
+                "params": job.params,
+            }
+            for job in Job.objects.filter(user_id=user_id).all()
+        ]
+        return JsonResponse({"jobs": jobs}, safe=False)
+    except Exception as ex:
+        return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error while retrieving jobs'}, status=500)
+ 
     
 
