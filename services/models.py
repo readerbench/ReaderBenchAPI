@@ -10,3 +10,5 @@ class Dataset(models.Model):
     name = models.CharField(max_length=50)
     task = models.CharField(max_length=50)
     lang = models.ForeignKey(Language, on_delete=models.CASCADE)
+    num_rows = models.IntegerField(default=0)
+    num_cols = models.IntegerField(default=0)

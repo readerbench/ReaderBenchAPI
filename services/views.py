@@ -1,3 +1,4 @@
+import csv
 import datetime
 from os import makedirs, rmdir
 import os
@@ -296,12 +297,20 @@ def add_dataset(request):
         with open(f"data/datasets/{dataset.pk}/targets.csv", "wb") as f:
             for chunk in targets.chunks():
                 f.write(chunk)
+        with open(f"data/datasets/{dataset.pk}/targets.csv", "rt") as f:
+            reader = csv.reader(f)
+            header = next(reader)
+            dataset.num_cols = len(header) - 1
         with zipfile.ZipFile(data) as f:
+            count = 0
             for zip_info in f.infolist():
                 if zip_info.filename[-1] == '/':
                     continue
                 zip_info.filename = os.path.basename(zip_info.filename)
                 f.extract(zip_info, f"data/datasets/{dataset.pk}/texts")
+                count += 1
+            dataset.num_rows = count
+        dataset.save()
         return JsonResponse({"id": dataset.pk})
     except Exception as ex:
         if 'dataset' in locals() and dataset.pk is not None:
@@ -309,6 +318,39 @@ def add_dataset(request):
             dataset.delete()
         return JsonResponse({'status': 'ERROR', 'error_code': 'add_operation_failed', 'message': 'The dataset could not be saved'}, status=500)
  
-
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def get_datasets(request):
+    try:
+        user_id = request.user.id if request.user.id is not None else 1
+        datasets = Dataset.objects.filter(user_id=user_id).all()
+        datasets = [
+            {
+                "id": dataset.id,
+                "name": dataset.name,
+                "language": dataset.lang_id,
+                "number_of_tasks": dataset.num_cols,
+                "number_of_entries": dataset.num_rows,
+            }
+            for dataset in datasets
+        ]
+        return JsonResponse({"datasets": datasets}, safe=False)
+    except Exception as ex:
+        return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error while retrieving datasets'}, status=500)
+ 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def get_languages(request):
+    try:
+        languages = [
+            {
+                "id": lang.id,
+                "label": lang.label,
+            }
+            for lang in Language.objects.all()
+        ]
+        return JsonResponse({"languages": languages}, safe=False)
+    except Exception as ex:
+        return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error while retrieving datasets'}, status=500)
     
 

@@ -19,7 +19,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import generics, permissions, serializers
 from oauth2_provider.contrib.rest_framework import TokenHasReadWriteScope
 
-from services.views import (add_dataset, get_indices, process_cscl, ro_correct_text, feedbackPost, 
+from services.views import (add_dataset, get_datasets, get_indices, get_languages, process_cscl, ro_correct_text, feedbackPost, 
                             fluctuations, keywords, keywordsHeatmap, 
                             syllables, similar_concepts, get_hypernyms,
                             restore_diacritics, clasify_aes)
@@ -55,4 +55,6 @@ urlpatterns = [
     path('services/aes', clasify_aes),
     path('services/cscl', process_cscl),
     path('services/datasets/add', add_dataset),
+    path('services/datasets', get_datasets),
+    path('services/languages', get_languages),
 ]
