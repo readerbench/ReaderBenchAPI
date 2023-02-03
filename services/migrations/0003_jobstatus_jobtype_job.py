@@ -3,19 +3,18 @@
 from django.conf import settings
 from django.db import migrations, models
 import django.db.models.deletion
+from services.enums import JobStatusEnum, JobTypeEnum
 
 from services.models import JobStatus, JobType
 
 def init_jobs(apps, schema_editor):
-    tasks = ["Pipeline", "CSCL"]
-    for task in tasks:
+    for task in JobTypeEnum:
         obj = JobType()
-        obj.label = task
+        obj.label = task.name
         obj.save()
-    statuses = ["Pending", "In progress", "Finished", "Error"]
-    for status in statuses:
+    for status in JobStatusEnum:
         obj = JobStatus()
-        obj.label = status
+        obj.label = status.name
         obj.save()
 
 def delete_jobs(apps, schema_editor):

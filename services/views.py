@@ -1,9 +1,10 @@
 import csv
 import datetime
-from os import makedirs, rmdir
+import json
 import os
-from typing import Dict
 import zipfile
+from os import makedirs, rmdir
+from typing import Dict
 
 import rb
 from django.http import JsonResponse
@@ -11,13 +12,7 @@ from django.shortcuts import get_object_or_404, render
 from rb import Document, Lang
 from rb.cna.cna_graph import CnaGraph
 from rb.complexity.complexity_index import compute_indices
-from rb.core.cscl.contribution import Contribution
-from rb.core.cscl.conversation import Conversation
-from rb.core.cscl.cscl_parser import load_from_xml
 from rb.core.text_element import TextElement, TextElementType
-from rb.processings.cscl.participant_evaluation import (
-    evaluate_interaction, evaluate_involvement, evaluate_textual_complexity,
-    perform_sna)
 from rb.processings.diacritics.DiacriticsRestoration import \
     DiacriticsRestoration
 from rb.processings.keywords.keywords_extractor import extract_keywords
@@ -29,6 +24,8 @@ from rb.utils.utils import str_to_lang
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
+from services import cscl
+from services.enums import JobStatusEnum, JobTypeEnum
 from services.feedback import feedback
 from services.models import Dataset, Job, Language
 from services.readme_misc.fluctuations import calculate_indices
@@ -205,75 +202,8 @@ def clasify_aes(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def process_cscl(request):
-    conv_dict = load_from_xml(request.FILES.get("file"))
     lang = request.data["lang"]
-    lang = str_to_lang(lang)
-    model = create_vector_model(lang, VectorModelType.TRANSFORMER, None)
-    conv = Conversation(lang, conv_dict, apply_heuristics=False)
-    model.encode(conv)
-    conv.graph = CnaGraph(conv, models=[model], pairwise=False, window=30)
-    evaluate_interaction(conv)
-    evaluate_involvement(conv)
-    participant_graph = perform_sna(conv, False)
-
-    contr_kb = {
-        contribution: 0
-        for contribution in conv.components
-    }
-    contr_in = {
-        contribution: 0
-        for contribution in conv.components
-    }
-    contr_out = {
-        contribution: 0
-        for contribution in conv.components
-    }
-    contr_edges = []
-    for u, v, w in conv.graph.filtered_graph.edges.data('weight', default=None):
-        if isinstance(u, Contribution) and isinstance(v, Contribution) and u.index < v.index:
-            contr_in[u] += w
-            contr_out[v] += w
-            contr_edges.append({
-                "source": u.index, 
-                "target": v.index,
-                "weight": w
-            })
-            if u.get_participant() != v.get_participant():
-                contr_kb[u] += w
-                contr_kb[v] += w
-
-    result = {
-        "graph": {
-            "participants": [p.get_id() for p in participant_graph.nodes],
-            "edges": [
-                {
-                    "source": a.get_id(), 
-                    "target": b.get_id(),
-                    "weight": w
-                }
-                for a, b, w in participant_graph.edges.data("weight")
-            ]
-        }, 
-        "participants": {
-            p.get_id(): {str(index): value for index, value in p.indices.items()}
-            for p in conv.get_participants()
-        },
-        "contributions": [
-            {
-                "id": c.index,
-                "text": c.text,
-                "participant": c.get_participant().get_id(),
-                "ref": c.parent_contribution.index if c.parent_contribution is not None else None,
-                "time": c.timestamp.isoformat(),
-                "importance": conv.graph.importance[c],
-                "social_kb": contr_kb[c],
-                "in_degree": contr_in[c],
-                "out_degree": contr_out[c]
-            }
-            for c in conv.components
-        ],
-        "contribution_edges": contr_edges
-    }
+    result = cscl.process_conv(request.FILES.get("file"), lang)
     
     return JsonResponse(result, safe=False)
 
@@ -293,7 +223,6 @@ def add_dataset(request):
         dataset.user_id = 1
         dataset.lang = lang
         dataset.save()
-        os.makedirs(f"data/datasets/{dataset.pk}/texts")
         with open(f"data/datasets/{dataset.pk}/targets.csv", "wb") as f:
             for chunk in targets.chunks():
                 f.write(chunk)
@@ -301,18 +230,19 @@ def add_dataset(request):
             reader = csv.reader(f)
             header = next(reader)
             dataset.num_cols = len(header) - 1
-        with zipfile.ZipFile(data) as f:
-            count = 0
-            for zip_info in f.infolist():
-                if zip_info.filename[-1] == '/':
-                    continue
-                zip_info.filename = os.path.basename(zip_info.filename)
-                f.extract(zip_info, f"data/datasets/{dataset.pk}/texts")
-                count += 1
-            dataset.num_rows = count
-        dataset.save()
+            dataset.num_rows = sum(1 for row in reader)
+            dataset.save()
+        if data is not None:
+            os.makedirs(f"data/datasets/{dataset.pk}/texts")
+            with zipfile.ZipFile(data) as f:
+                for zip_info in f.infolist():
+                    if zip_info.filename[-1] == '/':
+                        continue
+                    zip_info.filename = os.path.basename(zip_info.filename)
+                    f.extract(zip_info, f"data/datasets/{dataset.pk}/texts")
         return JsonResponse({"id": dataset.pk})
     except Exception as ex:
+        print(ex)
         if 'dataset' in locals() and dataset.pk is not None:
             rmdir(f"data/datasets/{dataset.pk}")
             dataset.delete()
@@ -370,6 +300,27 @@ def get_jobs(request):
         return JsonResponse({"jobs": jobs}, safe=False)
     except Exception as ex:
         return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error while retrieving jobs'}, status=500)
+ 
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def process_dataset(request, dataset_id):
+    try:
+        dataset = get_object_or_404(Dataset, id=dataset_id)
+        user_id = request.user.id if request.user.id is not None else 1
+        if dataset.user_id != user_id:
+            return JsonResponse({'status': 'ERROR', 'error_code': 'add_job_operation_failed', 'message': 'Forbidden'}, status=403)
+        job = Job()
+        job.user_id = user_id
+        job.type_id = JobTypeEnum.PIPELINE.value
+        job.status_id = JobStatusEnum.PENDING.value
+        job.params = json.dumps({"dataset_id": dataset_id})
+        job.save()
+        result = {"id": job.id}
+        return JsonResponse(result, safe=False)
+    except Exception as ex:
+        print(ex)
+        return JsonResponse({'status': 'ERROR', 'error_code': 'add_job_operation_failed', 'message': 'Error processing dataset'}, status=500)
  
     
 
