@@ -14,15 +14,18 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import include, path
 from django.contrib.auth import get_user_model
-from rest_framework import generics, permissions, serializers
+from django.urls import include, path
 from oauth2_provider.contrib.rest_framework import TokenHasReadWriteScope
+from rest_framework import generics, permissions, serializers
 
-from services.views import (add_dataset, get_datasets, get_indices, get_jobs, get_languages, process_cscl, process_dataset, ro_correct_text, feedbackPost, 
-                            fluctuations, keywords, keywordsHeatmap, 
-                            syllables, similar_concepts, get_hypernyms,
-                            restore_diacritics, clasify_aes)
+from pipeline.views import process_dataset
+from services.views import (add_dataset, clasify_aes, feedbackPost,
+                            fluctuations, get_datasets, get_hypernyms,
+                            get_indices, get_jobs, get_languages, keywords,
+                            keywordsHeatmap, process_cscl, restore_diacritics,
+                            ro_correct_text, similar_concepts, syllables)
+
 
 # Serializers
 class UserSerializer(serializers.ModelSerializer):
