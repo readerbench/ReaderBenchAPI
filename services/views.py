@@ -216,13 +216,14 @@ def add_dataset(request):
         lang_id = request.data["lang"]
         lang = get_object_or_404(Language, pk=lang_id)
         name = request.POST["name"]
-        task = request.POST ["task"]
+        task = request.POST["task"]
         dataset = Dataset()
         dataset.name = name
         dataset.task = task
         dataset.user_id = 1
         dataset.lang = lang
         dataset.save()
+        os.makedirs(f"data/datasets/{dataset.pk}")
         with open(f"data/datasets/{dataset.pk}/targets.csv", "wb") as f:
             for chunk in targets.chunks():
                 f.write(chunk)

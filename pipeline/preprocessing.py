@@ -8,6 +8,7 @@ from collections import Counter
 from typing import Dict, List
 
 from scipy.stats import f_oneway, pearsonr
+from pipeline.task import TargetType, Task, is_double, is_int
 
 from services.models import Dataset, Job
 
@@ -28,6 +29,17 @@ def split(dataset: Dataset):
         for idx in ids[-test_len:]:
             f.write(str(idx) + "\n")
 
+def get_labels(dataset: Dataset) -> List[List[str]]:
+    root = f"data/datasets/{dataset.id}"
+    result = []
+    with open(f"{root}/targets.csv", "rt") as f:
+        reader = csv.reader(f)
+        next(reader)
+        for row in reader:
+            result.append(row[1:])
+    return result
+    
+
 def generator(dataset: Dataset, partition: str):
     root = f"data/datasets/{dataset.id}"
     with open(f"{root}/{partition}.txt", "rt") as f:
@@ -45,8 +57,9 @@ def generator(dataset: Dataset, partition: str):
             else:
                 text = row[0]
             yield (text,) + tuple(row[1:])
+            
 
-def filter_rare(dataset: Dataset):
+def filter_rare(dataset: Dataset) -> Dict[str, Dict[str, List[float]]]:
     root = f"data/datasets/{dataset.id}"
     with open(f"{root}/train_features.csv", "rt") as f:
         reader = csv.reader(f)
@@ -54,6 +67,10 @@ def filter_rare(dataset: Dataset):
         all_values = {key: [] for key in keys}
         for row in reader:
             for key, value in zip(keys, row):
+                if value is not None and value != "":
+                    value = float(value)
+                else:
+                    value = 0.
                 all_values[key].append(value)
     features = []
     for key, values in all_values.items():
@@ -78,42 +95,44 @@ def filter_rare(dataset: Dataset):
             for row in reader:
                 for key, value in zip(keys, row):
                     if key in features:
+                        if value is not None and value != "":
+                            value = float(value)
+                        else:
+                            value = 0.
                         result[partition][key].append(value)
     return result
 
-def convert_labels(labels: List[List[str]]) -> List[Task]:
+def get_tasks(labels: List[List[str]]) -> List[Task]:
     values = zip(*labels)
     tasks = []
     for targets in values:
-        if all(is_double(target) for target in targets):
-            tasks.append(Task(TargetType.FLOAT, targets))
-        elif all(is_int(target) for target in targets):
+        if all(is_int(target) for target in targets):
             tasks.append(Task(TargetType.INT, targets))
+        elif all(is_double(target) for target in targets):
+            tasks.append(Task(TargetType.FLOAT, targets))
         else:
             tasks.append(Task(TargetType.STR, targets))
     return tasks
 
-def correlation_with_targets(feature: str, docs: List[Dict[str, float]], labels: List[float]) -> float:
-    values = [doc[feature] for doc in docs]
+def correlation_with_targets(values: List[float], labels: List[float]) -> float:
     corr, p = pearsonr(values, labels)
     return abs(corr)
    
 
-def remove_colinear(features: List[str], docs: List[Dict[str, float]], labels: List[float]) -> List[str]:
+def remove_colinear(values: Dict[str, List[float]], labels: List[float]) -> List[str]:
     heap = []
+    features = list(values.keys())
     for i, a in enumerate(features[:-1]):
         for j in range(i+1, len(features)):
             b = features[j]
-            values_a = [doc[a] for doc in docs]
-            values_b = [doc[b] for doc in docs]
-            corr, p = pearsonr(values_a, values_b)
+            corr, p = pearsonr(values[a], values[b])
             if math.isnan(corr):
                 continue
             heap.append((-corr, i, j))
     heapify(heap)
     
     correlations = [
-        correlation_with_targets(feature, docs, labels) 
+        correlation_with_targets(values[feature], labels) 
         for feature in features
     ]
     mask = [True] * len(features)

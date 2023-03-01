@@ -1,16 +1,28 @@
+import gc
+import logging
 from typing import Dict
 from rb import Document, Lang
 from rb.similarity.vector_model_factory import create_vector_model, VectorModelType
 from rb.cna.cna_graph import CnaGraph
 from rb.complexity.complexity_index import compute_indices
+import tensorflow as tf
+from rb.utils.rblogger import Logger
 
 def build_features(text: str, lang: Lang) -> Dict[str, float]:
+    Logger.get_logger().setLevel(logging.WARNING)
+    tf.config.run_functions_eagerly(True)
+    tf.config.set_visible_devices([], "GPU")
     doc = Document(lang, text)
     model = create_vector_model(lang, VectorModelType.TRANSFORMER, "")
     model.encode(doc)
     cna_graph = CnaGraph(docs=doc, models=[model])
     compute_indices(doc=doc, cna_graph=cna_graph) 
-    return {
-        str(index): value
+    result = {
+        str(index): float(value) if value is not None else None
         for index, value in doc.indices.items()
     }
+    # del cna_graph
+    # del doc
+    # gc.collect()
+    return result
+    
