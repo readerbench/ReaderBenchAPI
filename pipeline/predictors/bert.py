@@ -1,0 +1,150 @@
+import datetime
+import json
+from typing import Dict, List
+
+import numpy as np
+import tensorflow as tf
+from ray import tune
+from ray.air import Result
+from ray.tune.integration.keras import TuneReportCallback
+from transformers import AutoTokenizer, TFAutoModel
+from pipeline.predictors.predictor import Predictor
+
+from pipeline.task import TargetType, Task
+from rb import Lang
+
+class BertPredictor(Predictor):
+    def __init__(self, lang: Lang, tasks: List[Task]):
+        super().__init__(lang, tasks)
+        self.time_budget = datetime.timedelta(hours=12)
+        self.resources = {"cpu": 16, "gpu": 0}
+        
+    def load_data(self, texts, features, targets):
+        self.texts = texts
+        self.features = features
+        self.targets = targets
+    
+    def get_config(self):
+        if self.lang is Lang.EN:
+            models = ["roberta-base", "bert-base-uncased"]
+        elif self.lang is Lang.FR:
+            models = ["camembert-base"]
+        elif self.lang is Lang.RO:
+            models = ["readerbench/RoBERT-base"]
+        elif self.lang is Lang.PT:
+            models = ["neuralmind/bert-base-portuguese-cased"]
+        config = {
+            "model": tune.choice(models),
+            "use_features": tune.choice([True, False]),
+            "pooler": tune.choice([True, False]),
+            "hidden": tune.choice([32, 64, 128, 256]), 
+            "lr": tune.qloguniform(5e-6, 1e-4, 5e-6),
+            "finetune_epochs": 5,
+
+        }
+        return config
+    
+
+    def create_model(self, config):
+        bert = TFAutoModel.from_pretrained(config["model"], from_pt=False)
+        token_ids = tf.keras.layers.Input((None,), dtype=np.int32)
+        attention_mask = tf.keras.layers.Input((None,), dtype=np.int32)
+        inputs = [token_ids, attention_mask]
+        if config["use_features"]:
+            for task in self.tasks:
+                inputs.append(tf.keras.layers.Input((len(task.features),), dtype=np.float32)) 
+        emb = bert(input_ids=token_ids, attention_mask=attention_mask)
+        if config["pooler"]:
+            emb = emb.pooler_output
+        else:
+            emb = tf.keras.layers.GlobalAveragePooling1D()(emb.last_hidden_state, mask=attention_mask)
+        
+        outputs = []
+        for i, task in enumerate(self.tasks):
+            if config["use_features"]:
+                emb = tf.keras.layers.Concatenate(axis=-1)([emb, inputs[2+i]])
+            hidden = tf.keras.layers.Dense(config["hidden"], activation="relu")(emb)
+            if task.type is TargetType.STR:
+                output = tf.keras.layers.Dense(len(task.classes), activation="softmax")(hidden)
+            else:
+                output = tf.keras.layers.Dense(1, activation=None)(hidden)
+            outputs.append(output)
+        model = tf.keras.Model(
+            inputs=inputs, 
+            outputs=outputs)
+        return model
+
+    def train(self, config, validation=True):
+        model = self.create_model(config)
+        tokenizer = AutoTokenizer.from_pretrained(config["model"])
+        if validation:
+            processed = tokenizer(self.texts["train"], padding="max_length", truncation=True, max_length=512, return_tensors="np") 
+        else:
+            processed = tokenizer(self.texts["train"] + self.texts["val"], padding="max_length", truncation=True, max_length=512, return_tensors="np") 
+        train_inputs = [
+            processed["input_ids"], 
+            processed["attention_mask"], 
+        ]
+        train_outputs = []
+        for i, task in enumerate(self.tasks):
+            if validation:
+                if config["use_features"]:
+                    train_inputs.append(np.array([self.features["train"][key] for key in task.features]).transpose())
+                train_outputs.append(np.array(self.targets["train"][i])) 
+            else:
+                if config["use_features"]:
+                    train_inputs.append(np.array([self.features["train"][key] + self.features["val"][key] for key in task.features]).transpose())
+                train_outputs.append(np.array(self.targets["train"][i] + self.targets["val"][i])) 
+        callbacks = []
+        if validation:
+            test_partition = "val"
+            ray_callback = TuneReportCallback()
+            callbacks.append(ray_callback)
+        else:
+            test_partition = "test"
+        processed = tokenizer(self.texts[test_partition], padding="max_length", truncation=True, max_length=512, return_tensors="np") 
+        test_inputs = [
+            processed["input_ids"], 
+            processed["attention_mask"], 
+        ]
+        test_outputs = []
+        for i, task in enumerate(self.tasks):
+            if config["use_features"]:
+                test_inputs.append(np.array([self.features[test_partition][key] for key in task.features]).transpose())
+            test_outputs.append(np.array(self.targets[test_partition][i])) 
+        validation_data=(test_inputs, test_outputs)
+        
+        optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=config["lr"])
+        losses = ["sparse_categorical_crossentropy" if task.type is TargetType.STR else "mse" for task in self.tasks]
+        metrics = [
+            [tf.keras.metrics.SparseCategoricalAccuracy(name=f"Accuracy_{i}")] 
+            if task.type is TargetType.STR 
+            else [tf.keras.metrics.MeanAbsoluteError(name=f"MAE_{i}")] 
+            for i, task in enumerate(self.tasks)
+        ]
+        model.compile(optimizer=optimizer, loss=losses, metrics=metrics)
+        history = model.fit(train_inputs, train_outputs, batch_size=12, epochs=config["finetune_epochs"], validation_data=validation_data, 
+            verbose=2, callbacks=callbacks)
+        if not validation:
+            metrics = {
+                metric[4:]: values[-1]
+                for metric, values in history.history.items()
+                if metric.startswith("val")
+            }
+            self.model = model
+            return metrics    
+        
+    def process_result(self, result: Result) -> Dict:
+        config = result.config
+        config["finetune_epochs"] = result.metrics["training_iteration"]
+        return config
+    
+    def save(self, model_obj: "Model"):
+        self.model.save_weights(f"data/models/{model_obj.id}/model")
+
+    def load(self, model_obj: "Model"):
+        self.model = self.create_model(json.loads(model_obj.params))
+        self.model.load_weights(f"data/models/{model_obj.id}/model")
+        
+        
+        

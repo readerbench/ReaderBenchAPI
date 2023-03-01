@@ -2,6 +2,10 @@ Django
 django-cors-headers
 django-oauth-toolkit
 djangorestframework
+optuna
 psycopg2
+pyarrow
+ray[tune]
 rbpy-rb>=0.11.2
-tf2crf
+# tf2crf
+xgboost

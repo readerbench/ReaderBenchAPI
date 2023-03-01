@@ -1,7 +1,6 @@
 import pickle
 import numpy as np
 import spacy
-from tf2crf import CRF, ModelWithCRFLossDSCLoss, ModelWithCRFLoss
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import Model
@@ -53,6 +52,7 @@ def build_bilstm_model(vocab_size, max_seq_length, embedding_dim, pos_size, unit
     # cc = Concatenate()([bilstm, pos_emb])
     td1 = TimeDistributed(Dense(64, activation="relu"))(bilstm)
     if add_crf:
+        from tf2crf import CRF
         crf = CRF(units=2)(td1)
         return Model(inputs=[em_input, pos_input], outputs=crf)
     else:
@@ -76,6 +76,8 @@ def decode(word, binary_array):
 
 
 def syllabify(text, ro_model):
+    from tf2crf import ModelWithCRFLoss
+
     max_seq_length = load_pickle_dump('services/binaries/syllables/max_sequence_length.dump')
     input_token_index = load_pickle_dump('services/binaries/syllables/input_token_index.dump')
     pos_index_dict = load_pickle_dump('services/binaries/syllables/pos_index_dict.dump')
