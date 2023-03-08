@@ -1,11 +1,15 @@
 import gc
 import logging
 from typing import Dict
+
+import pyphen
+import tensorflow as tf
 from rb import Document, Lang
-from rb.similarity.vector_model_factory import create_vector_model, VectorModelType
 from rb.cna.cna_graph import CnaGraph
 from rb.complexity.complexity_index import compute_indices
-import tensorflow as tf
+from rb.similarity.vector_model_factory import (VectorModelType,
+                                                create_vector_model)
+from rb.similarity.wordnet import WordNet
 from rb.utils.rblogger import Logger
 
 def build_features(text: str, lang: Lang) -> Dict[str, float]:
@@ -21,8 +25,12 @@ def build_features(text: str, lang: Lang) -> Dict[str, float]:
         str(index): float(value) if value is not None else None
         for index, value in doc.indices.items()
     }
-    # del cna_graph
-    # del doc
-    # gc.collect()
+    del cna_graph
+    del doc
+    if WordNet._instance is not None:
+        del WordNet._instance.wn
+    WordNet._instance = None
+    pyphen.hdcache = {}
+    gc.collect()
     return result
     

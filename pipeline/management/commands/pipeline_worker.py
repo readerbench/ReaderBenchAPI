@@ -24,9 +24,13 @@ def process(job: Job):
         dataset = Dataset.objects.get(id=params["dataset_id"])
         root = f"data/datasets/{dataset.id}"
         lang = Lang[dataset.lang.label]
+        with open(f"{root}/targets.csv", "rt") as f:
+            reader = csv.reader(f)
+            header = next(reader)
+            task_names = header[1:]
         split(dataset)
         for partition in ["train", "val", "test"]:
-            with Parallel(n_jobs=8,prefer="processes", verbose=100) as parallel:
+            with Parallel(n_jobs=8, prefer="processes", verbose=100) as parallel:
                 features = parallel( \
                     delayed(build_features)(row[0], lang) \
                     for row in generator(dataset, partition))
@@ -39,6 +43,8 @@ def process(job: Job):
         features = filter_rare(dataset)
         all_labels = get_labels(dataset)
         tasks = get_tasks(all_labels)
+        for name, task in zip(task_names, tasks):
+            task.name = name
         labels = [[] for _ in tasks]
         for row in generator(dataset, "train"):
             for i, value in enumerate(row[1:]):
@@ -48,7 +54,7 @@ def process(job: Job):
         for i, task in enumerate(tasks):
             task.save(f"data/datasets/{dataset.id}/task_{i}.json")
         # tasks = []
-        # for i in range(2):
+        # for i in range(len(task_names)):
         #     with open(f"data/datasets/{dataset.id}/task_{i}.json", "rt") as f:
         #         obj = json.load(f)
         #         task = Task(obj=obj)
@@ -59,8 +65,7 @@ def process(job: Job):
     except KeyboardInterrupt:
         raise
     except Exception as ex:
-        raise
-        # print(ex)
+        print(ex)
         job.status_id = JobStatusEnum.ERROR.value
         job.save()
 
@@ -71,7 +76,10 @@ class Command(BaseCommand):
         while True:
             job = Job.objects.filter(status_id=JobStatusEnum.PENDING.value, type_id=JobTypeEnum.PIPELINE.value).first()
             if job is None:
-                time.sleep(1)
+                try:
+                    time.sleep(1)
+                except KeyboardInterrupt:
+                    raise
                 continue
             print(f"Starting pipeline job {job.id}...")
             process(job)

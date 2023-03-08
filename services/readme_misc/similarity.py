@@ -1,7 +1,7 @@
-from typing import Union, List, Dict, Any
+from typing import Any, Dict, List, Union
 
-from rb import Word, Lang
-from rb.similarity.wordnet import get_synsets, get_synset_hypernyms, lang_dict
+from rb import Lang, Word
+from rb.similarity.wordnet import WordNet, lang_dict
 
 
 def get_hypernymes_grouped_by_synset(word: Union[str, Word], lang: Lang = None, pos: str = None) -> Dict[Any, List[str]]:    
@@ -14,9 +14,9 @@ def get_hypernymes_grouped_by_synset(word: Union[str, Word], lang: Lang = None, 
     result = dict()
 
     # using plain wordnet
-    synsets = get_synsets(word, pos=pos, lang=lang_dict[lang])
+    synsets = WordNet.get_instance().get_synsets(word, pos=pos, lang=lang_dict[lang])
     for synset in synsets:
-        for parent in get_synset_hypernyms(synset):
+        for parent in WordNet.get_instance().get_synset_hypernyms(synset):
             lang_lemmas = []
             lemmas = parent.lemma_names(lang=lang_dict[lang])
             for lemma in lemmas:

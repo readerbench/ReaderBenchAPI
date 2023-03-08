@@ -73,7 +73,7 @@ class Predictor():
                 scheduler=asha_scheduler,
                 num_samples=-1,
                 time_budget_s=self.time_budget,
-                reuse_actors=True,
+                reuse_actors=False,
             ),
             param_space = self.get_config(),
             run_config=RunConfig(progress_reporter=reporter, verbose=1)

@@ -7,16 +7,18 @@ import tensorflow as tf
 from ray import tune
 from ray.air import Result
 from ray.tune.integration.keras import TuneReportCallback
-from transformers import AutoTokenizer, TFAutoModel
-from pipeline.predictors.predictor import Predictor
-
-from pipeline.task import TargetType, Task
 from rb import Lang
+from sklearn.metrics import f1_score, r2_score
+from transformers import AutoTokenizer, TFAutoModel
+
+from pipeline.predictors.predictor import Predictor
+from pipeline.task import TargetType, Task
+
 
 class BertPredictor(Predictor):
     def __init__(self, lang: Lang, tasks: List[Task]):
         super().__init__(lang, tasks)
-        self.time_budget = datetime.timedelta(hours=12)
+        self.time_budget = datetime.timedelta(hours=2)
         self.resources = {"cpu": 16, "gpu": 0}
         
     def load_data(self, texts, features, targets):
@@ -65,9 +67,9 @@ class BertPredictor(Predictor):
                 emb = tf.keras.layers.Concatenate(axis=-1)([emb, inputs[2+i]])
             hidden = tf.keras.layers.Dense(config["hidden"], activation="relu")(emb)
             if task.type is TargetType.STR:
-                output = tf.keras.layers.Dense(len(task.classes), activation="softmax")(hidden)
+                output = tf.keras.layers.Dense(len(task.classes), activation="softmax", name=task.name)(hidden)
             else:
-                output = tf.keras.layers.Dense(1, activation=None)(hidden)
+                output = tf.keras.layers.Dense(1, activation=None, name=task.name)(hidden)
             outputs.append(output)
         model = tf.keras.Model(
             inputs=inputs, 
@@ -117,10 +119,10 @@ class BertPredictor(Predictor):
         optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=config["lr"])
         losses = ["sparse_categorical_crossentropy" if task.type is TargetType.STR else "mse" for task in self.tasks]
         metrics = [
-            [tf.keras.metrics.SparseCategoricalAccuracy(name=f"Accuracy_{i}")] 
+            [tf.keras.metrics.SparseCategoricalAccuracy(name=f"Accuracy_{task.name}")] 
             if task.type is TargetType.STR 
-            else [tf.keras.metrics.MeanAbsoluteError(name=f"MAE_{i}")] 
-            for i, task in enumerate(self.tasks)
+            else [tf.keras.metrics.MeanAbsoluteError(name=f"MAE_{task.name}")] 
+            for task in self.tasks
         ]
         model.compile(optimizer=optimizer, loss=losses, metrics=metrics)
         history = model.fit(train_inputs, train_outputs, batch_size=12, epochs=config["finetune_epochs"], validation_data=validation_data, 
@@ -131,6 +133,19 @@ class BertPredictor(Predictor):
                 for metric, values in history.history.items()
                 if metric.startswith("val")
             }
+            predictions = model.predict(test_inputs, batch_size=12)
+            if len(self.tasks) == 1:
+                predictions = [predictions]
+            for task, output, pred in zip(self.tasks, test_outputs, predictions):
+                if task.type is TargetType.STR:
+                    pred = np.argmax(pred, axis=-1)
+                    if len(task.classes) == 2:
+                        average = "binary"
+                    else:
+                        average = "macro"
+                    metrics[f"f1_score_{task.name}"] = f1_score(output, pred, average=average)
+                else:
+                    metrics[f"r2_score_{task.name}"] = r2_score(output, pred[:, 0])
             self.model = model
             return metrics    
         

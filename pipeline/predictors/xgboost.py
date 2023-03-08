@@ -10,7 +10,7 @@ import xgboost as xgb
 from pipeline.predictors.predictor import Predictor
 
 from pipeline.task import TargetType, Task
-from sklearn.metrics import accuracy_score, r2_score, mean_absolute_error
+from sklearn.metrics import accuracy_score, r2_score, mean_absolute_error, f1_score
 
 class XGBoostPredictor(Predictor):
     def __init__(self, lang: Lang, task: Task):
@@ -66,10 +66,20 @@ class XGBoostPredictor(Predictor):
         )
         if not validation:
             predicted = model.predict(test_set, validate_features=False)
-            metrics = {
-                "mae": mean_absolute_error(self.test_y, predicted),
-                "r2_score": r2_score(self.test_y, predicted),
-            }
+            if self.task.type is TargetType.STR:
+                if len(self.task.classes) == 2:
+                    average = "binary"
+                else:
+                    average = "macro"
+                metrics = {
+                    "accuracy": accuracy_score(self.test_y, predicted),
+                    "f1_score": f1_score(self.test_y, predicted, average=average)
+                }
+            else:
+                metrics = {
+                    "mae": mean_absolute_error(self.test_y, predicted),
+                    "r2_score": r2_score(self.test_y, predicted),
+                }
             self.model = model
             return metrics    
         # session.report({"mean_accuracy": accuracy, "done": True})
