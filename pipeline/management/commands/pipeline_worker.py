@@ -1,4 +1,5 @@
 import csv
+from datetime import datetime
 import json
 import logging
 import os
@@ -19,6 +20,7 @@ from services.models import Dataset, Job, Language
 def process(job: Job):
     job.status_id = JobStatusEnum.IN_PROGRESS.value
     job.save()
+    t1 = datetime.now()
     try:
         params = json.loads(job.params)
         dataset = Dataset.objects.get(id=params["dataset_id"])
@@ -61,12 +63,16 @@ def process(job: Job):
         #         tasks.append(task)
         hyperparameter_search(dataset, job, tasks, features)
         job.status_id = JobStatusEnum.FINISHED.value
+        t2 = datetime.now()
+        job.elapsed_seconds = (t2 - t1).seconds
         job.save()
     except KeyboardInterrupt:
         raise
     except Exception as ex:
+        t2 = datetime.now()
         print(ex)
         job.status_id = JobStatusEnum.ERROR.value
+        job.elapsed_seconds = (t2 - t1).seconds
         job.save()
 
 class Command(BaseCommand):

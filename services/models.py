@@ -23,5 +23,7 @@ class Job(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     type = models.ForeignKey(JobType, on_delete=models.CASCADE)
     status = models.ForeignKey(JobStatus, on_delete=models.CASCADE)
+    submit_time = models.DateTimeField(auto_now_add=True)
+    elapsed_seconds = models.IntegerField(default=0)
     params = models.TextField(default="{}")
     results = models.TextField(default="{}")

@@ -7,5 +7,7 @@ psycopg2
 pyarrow
 ray[tune]
 rbpy-rb>=0.11.2
-# tf2crf
+tensorflow
+tf2crf
+transformers
 xgboost

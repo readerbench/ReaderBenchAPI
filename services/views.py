@@ -28,6 +28,7 @@ from services import cscl
 from services.enums import JobStatusEnum, JobTypeEnum
 from services.feedback import feedback
 from services.models import Dataset, Job, Language
+from services.qgen.answer_generation import oracle_gen, spacy_gen
 from services.readme_misc.fluctuations import calculate_indices
 from services.readme_misc.keywords import *
 from services.readme_misc.similarity import get_hypernymes_grouped_by_synset
@@ -295,10 +296,24 @@ def get_jobs(request):
                 "status": job.status_id,
                 "type": job.type_id,
                 "params": job.params,
+                "submit_time": job.submit_time.timestamp(),
+                "elapsed_time": job.elapsed_seconds,
             }
             for job in Job.objects.filter(user_id=user_id).all()
         ]
         return JsonResponse({"jobs": jobs}, safe=False)
     except Exception as ex:
         return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error while retrieving jobs'}, status=500)
- 
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def get_potential_answers(request):
+    # try:
+    text = request.data["text"]
+    result = []
+    result += spacy_gen(text)
+    result += oracle_gen(text)
+    return JsonResponse(result, safe=False)
+    # except Exception as ex:
+    #     return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error while retrieving jobs'}, status=500)
+  
