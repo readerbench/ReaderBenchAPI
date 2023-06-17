@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Dict, List
 
@@ -86,7 +87,7 @@ class XGBoostPredictor(Predictor):
 
     def get_metric(self):
         return "eval-" + self.get_config()["eval_metric"][0]
-
+    
 class XGBoostMultiPredictor(Predictor):
 
     def __init__(self, lang: Lang, tasks: List[Task]):
@@ -111,7 +112,8 @@ class XGBoostMultiPredictor(Predictor):
         
     def load(self, model_obj: "Model"):
         for i, predictor in enumerate(self.predictors):
-            predictor.model = xgb.Booster.load_model(f"data/models/{model_obj.id}/model-{i}.json")
+            predictor.model = xgb.Booster()
+            predictor.model.load_model(f"data/models/{model_obj.id}/model-{i}.json")
     
     def train(self, configs, validation=True):
         result = []
@@ -128,3 +130,15 @@ class XGBoostMultiPredictor(Predictor):
     
     def process_result(self, results: List[Result]) -> List[Dict]:
         return [result.config for result in results]
+    
+    def predict(self, model_obj: "Model", texts: List[str], features: List[Dict]) -> List[np.ndarray]:
+        self.load(model_obj)
+        result = []
+        for task, predictor in zip(self.tasks, self.predictors):
+            filtered_features = np.array([
+                [features_dict[key] for key in task.features]
+                for features_dict in features
+            ])
+            inputs = xgb.DMatrix(filtered_features)
+            result.append(predictor.model.predict(inputs, validate_features=False))
+        return result

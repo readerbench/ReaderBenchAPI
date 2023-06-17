@@ -159,7 +159,23 @@ class BertPredictor(Predictor):
 
     def load(self, model_obj: "Model"):
         self.model = self.create_model(json.loads(model_obj.params))
-        self.model.load_weights(f"data/models/{model_obj.id}/model")
-        
-        
+        self.model.load_weights(f"data/models/{model_obj.id}/model").expect_partial()
+
+    def predict(self, model_obj: "Model", texts: List[str], features: List[Dict]) -> List[np.ndarray]:
+        config = json.loads(model_obj.params)
+        tokenizer = AutoTokenizer.from_pretrained(config["model"])
+        self.load(model_obj)
+        processed = tokenizer(texts, padding="max_length", truncation=True, max_length=512, return_tensors="np")
+        inputs = [
+            processed["input_ids"], 
+            processed["attention_mask"], 
+        ]
+        for i, task in enumerate(self.tasks):
+            if config["use_features"]:
+                filtered_features = np.array([
+                    [features_dict[key] for key in task.features]
+                    for features_dict in features
+                ])
+                inputs.append(filtered_features)
+        return self.model.predict(inputs, batch_size=12)   
         
