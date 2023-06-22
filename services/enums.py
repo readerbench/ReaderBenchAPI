@@ -4,6 +4,7 @@ from enum import Enum
 class JobTypeEnum(Enum):
     PIPELINE = 1
     CSCL = 2
+    PREDICT = 3
 
 class JobStatusEnum(Enum):
     PENDING = 1

@@ -19,7 +19,7 @@ from django.urls import include, path
 from oauth2_provider.contrib.rest_framework import TokenHasReadWriteScope
 from rest_framework import generics, permissions, serializers
 
-from pipeline.views import model_predict, process_dataset
+from pipeline.views import get_models, get_result, model_predict, process_dataset
 from services.views import (add_dataset, clasify_aes, feedbackPost,
                             fluctuations, get_datasets, get_hypernyms,
                             get_indices, get_jobs, get_languages, get_potential_answers, keywords,
@@ -61,7 +61,9 @@ urlpatterns = [
     path('services/datasets', get_datasets),
     path('services/languages', get_languages),
     path('services/jobs', get_jobs),
+    path('services/jobs/<int:job_id>/result', get_result),
     path('services/datasets/<int:dataset_id>/process', process_dataset),
     path('services/qgen/answers', get_potential_answers),
     path('pipeline/models/<int:model_id>/predict', model_predict),
+    path('pipeline/models', get_models),
 ]

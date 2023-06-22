@@ -1,17 +1,21 @@
 import csv
-from datetime import datetime
 import json
 import logging
 import os
 import time
+from datetime import datetime
 
 from django.core.management.base import BaseCommand
+from django.db.models import Q
 from joblib import Parallel, delayed
 from rb import Lang
 
+from pipeline.enums import ModelTypeEnum
+from pipeline.models import Model
 from pipeline.parallel import build_features
-from pipeline.preprocessing import filter_rare, generator, get_labels, get_tasks, remove_colinear, split
-from pipeline.task import Task
+from pipeline.preprocessing import (filter_rare, generator, get_labels,
+                                    get_tasks, remove_colinear, split)
+from pipeline.task import TargetType, Task
 from pipeline.tuning import hyperparameter_search
 from services.enums import JobStatusEnum, JobTypeEnum
 from services.models import Dataset, Job, Language
@@ -32,7 +36,7 @@ def process(job: Job):
             task_names = header[1:]
         split(dataset)
         for partition in ["train", "val", "test"]:
-            with Parallel(n_jobs=8, prefer="processes", verbose=100) as parallel:
+            with Parallel(n_jobs=4, prefer="processes", verbose=100) as parallel:
                 features = parallel( \
                     delayed(build_features)(row[0], lang) \
                     for row in generator(dataset, partition))
@@ -75,12 +79,74 @@ def process(job: Job):
         job.elapsed_seconds = (t2 - t1).seconds
         job.save()
 
+def predict(job: Job):
+    job.status_id = JobStatusEnum.IN_PROGRESS.value
+    job.save()
+    t1 = datetime.now()
+    try:
+        params = json.loads(job.params)
+        model = Model.objects.get(id=params["model_id"])
+        dataset = model.dataset
+        tasks = []
+        for i in range(dataset.num_cols):
+            with open(f"data/datasets/{dataset.id}/task_{i}.json", "rt") as f:
+                obj = json.load(f)
+                task = Task(obj=obj)
+                tasks.append(task)
+        lang = Lang[dataset.lang.label]
+        predictor = ModelTypeEnum(model.type_id).predictor()(lang, tasks)
+        texts = []
+        with open(f"data/jobs/{job.id}/input.csv", "rt") as f:
+            reader = csv.reader(f)
+            next(reader)
+            for row in reader:
+                texts.append(row[0])
+        with Parallel(n_jobs=4, prefer="processes", verbose=100) as parallel:
+            all_features = parallel( \
+                delayed(build_features)(text, lang) \
+                for text in texts)
+        predictions = predictor.predict(model, texts, all_features)
+        with open(f"data/jobs/{job.id}/output.csv", "wt") as f:
+            writer = csv.writer(f)
+            header = ["Text"]
+            for task in tasks:
+                if task.type is TargetType.STR:
+                    for label in task.classes:
+                        header.append(f"{task.name}: {label}")
+                else:
+                    header.append(task.name)
+            writer.writerow(header)
+            for i, text in enumerate(texts):
+                row = [text]
+                for task, pred in zip(tasks, predictions):
+                    if task.type is TargetType.STR:
+                        row += [float(f) for p in pred[i]]
+                    else:
+                        row.append(float(pred[i]))
+                writer.writerow(row)    
+        job.status_id = JobStatusEnum.FINISHED.value
+        t2 = datetime.now()
+        job.elapsed_seconds = (t2 - t1).seconds
+        job.save()
+    except KeyboardInterrupt:
+        raise
+    except Exception as ex:
+        t2 = datetime.now()
+        print(ex)
+        job.status_id = JobStatusEnum.ERROR.value
+        job.elapsed_seconds = (t2 - t1).seconds
+        job.save()
+
 class Command(BaseCommand):
     help = 'Runs pipeline jobs'
 
     def handle(self, *args, **options):
         while True:
-            job = Job.objects.filter(status_id=JobStatusEnum.PENDING.value, type_id=JobTypeEnum.PIPELINE.value).first()
+            job = Job.objects \
+                .filter(status_id=JobStatusEnum.PENDING.value) \
+                .filter(Q(type_id=JobTypeEnum.PIPELINE.value) | Q(type_id=JobTypeEnum.PREDICT.value)) \
+                .exclude(params="{}") \
+                .first()
             if job is None:
                 try:
                     time.sleep(1)
@@ -88,7 +154,10 @@ class Command(BaseCommand):
                     raise
                 continue
             print(f"Starting pipeline job {job.id}...")
-            process(job)
+            if job.type_id == JobTypeEnum.PIPELINE.value:
+                process(job)
+            else:
+                predict(job)
             print(f"Pipeline job {job.id} finished")
             
 

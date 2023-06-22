@@ -19,7 +19,7 @@ class BertPredictor(Predictor):
     def __init__(self, lang: Lang, tasks: List[Task]):
         super().__init__(lang, tasks)
         self.time_budget = datetime.timedelta(hours=2)
-        self.resources = {"cpu": 16, "gpu": 0}
+        self.resources = {"cpu": 8, "gpu": 0}
         
     def load_data(self, texts, features, targets):
         self.texts = texts
