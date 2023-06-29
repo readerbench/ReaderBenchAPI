@@ -164,3 +164,4 @@ cython_debug/
 resources
 static
 data
+models

@@ -1,10 +1,17 @@
 import re
 import string
 from typing import Dict, List
-from rb.parser.spacy_parser import SpacyParser
-from rb import Lang
+
 import tensorflow as tf
+from nltk import sent_tokenize
+from rb import Lang
+from rb.parser.spacy_parser import SpacyParser
 from transformers import AutoTokenizer, TFT5ForConditionalGeneration
+from services.qgen.dqn import DQAgent, get_largest_indexes
+
+from services.qgen import environment
+
+
 def spacy_gen(text: str) -> List[Dict]:
     doc = SpacyParser.get_instance().get_model(Lang.EN)(text)
     result = []
@@ -52,3 +59,45 @@ def oracle_gen(text: str) -> List[Dict]:
                 "text": answer,
             })
     return result
+
+def rl_gen(text) -> List[Dict]:
+    sentences = sent_tokenize(text)
+    index = 0
+    sent_start = {}
+    for i, sent in enumerate(sentences):
+        if not text[index:].startswith(sent):
+            index += 1
+        sent_start[i] = index
+        index += len(sent)    
+    agent = DQAgent()
+    agent.load('models/model_dq_val_0')
+    try:
+        env = environment.MyEnvironment(text)
+        env.assign_parents(env.initial_state)
+    except Exception as e:
+        raise
+
+    _, dists, _ = agent.act(env.current_state)
+    best_indexes = get_largest_indexes(dists, len(sentences))
+
+    all_answers = []
+
+    for i in range(len(sentences)):
+        env.current_state = env.initial_state
+        index = best_indexes[i]
+        done = False
+        while not done:
+            action, dists, _ = agent.act(env.current_state, index)
+            print("-------")
+            state: environment.Node = env.current_state
+            print(f"Current state: {state.text}")
+            done = env.step_next_state(action)
+            if done == True:
+                all_answers.append({
+                    "start": state.start_char_idx + sent_start[index],
+                    "end": state.end_char_idx + sent_start[index],
+                    "type": "RL",
+                    "text": state.text,
+                })
+                break
+    return all_answers

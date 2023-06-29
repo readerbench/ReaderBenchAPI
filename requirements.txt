@@ -1,3 +1,5 @@
+benepar
+clean-text
 Django
 django-cors-headers
 django-oauth-toolkit
@@ -7,6 +9,8 @@ psycopg2
 pyarrow
 ray[tune]
 rbpy-rb>=0.11.2
+sense2vec
+SPARQLWrapper
 tensorflow
 tf2crf
 transformers

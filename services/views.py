@@ -7,8 +7,10 @@ from os import makedirs, rmdir
 from typing import Dict
 
 import rb
+from cleantext import clean
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
+from nltk import sent_tokenize
 from rb import Document, Lang
 from rb.cna.cna_graph import CnaGraph
 from rb.complexity.complexity_index import compute_indices
@@ -23,12 +25,14 @@ from rb.similarity.vector_model_factory import create_vector_model
 from rb.utils.utils import str_to_lang
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
+import tensorflow as tf
 
 from services import cscl
 from services.enums import JobStatusEnum, JobTypeEnum
 from services.feedback import feedback
 from services.models import Dataset, Job, Language
-from services.qgen.answer_generation import oracle_gen, spacy_gen
+from services.qgen.answer_generation import oracle_gen, rl_gen, spacy_gen
+from services.qgen.fill_distractors import generate_all_distractors
 from services.readme_misc.fluctuations import calculate_indices
 from services.readme_misc.keywords import *
 from services.readme_misc.similarity import get_hypernymes_grouped_by_synset
@@ -37,7 +41,7 @@ from services.russian_a_vs_b.ru_a_vs_b import RussianAvsB
 from services.subject_predicate.correct import (language_correct,
                                                 ro_language_correct)
 from services.syllables.syllables import syllabify
-
+from services.qgen.utils import t5_model_qall, t5_tokenizer_qall
 
 def build_text_element_result(elem: TextElement) -> Dict:
     if elem.depth < TextElementType.SENT.value:
@@ -308,12 +312,52 @@ def get_jobs(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def get_potential_answers(request):
+    try:
+        text = request.data["text"]
+        text = clean(text, fix_unicode=True, to_ascii=True, lower=False, no_urls=True, no_emails=True, no_phone_numbers=True)
+        result = []
+        result += spacy_gen(text)
+        result += oracle_gen(text)
+        result += rl_gen(text)
+        return JsonResponse(result, safe=False)
+    except Exception as ex:
+        return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error generating answers'}, status=500)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def generate_test(request):
     # try:
     text = request.data["text"]
+    answers = request.data["answers"]
+    sentences = sent_tokenize(text)
+    index = 0
+    sent_start = []
+    for sent in sentences:
+        if not text[index:].startswith(sent):
+            index += 1
+        sent_start.append(index)
+        index += len(sent)    
     result = []
-    result += spacy_gen(text)
-    result += oracle_gen(text)
+    for answer_obj in answers:
+        start = answer_obj["start"]
+        end = answer_obj["end"]
+        answer = text[start:end]
+        prompt = f"Generate a question based on the context and the answer.\n Context: {text}\nAnswer: {answer}"
+        input_ids = t5_tokenizer_qall(prompt, return_tensors="tf").input_ids
+        prediction = t5_model_qall.generate(input_ids=input_ids, max_new_tokens=128,  
+                                    num_return_sequences=1, penalty_alpha=0.6, top_k=8)
+        question = t5_tokenizer_qall.decode(prediction[0], skip_special_tokens=True)
+        for i, idx in enumerate(sent_start):
+            if start < idx:
+                break
+        sent = sentences[i-1]
+        distractors = generate_all_distractors(text, question, answer, sent)
+        result.append({
+            "question": question,
+            "answer": answer,
+            "distractors": [dist[0] for dist in distractors]
+        })
     return JsonResponse(result, safe=False)
     # except Exception as ex:
     #     return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error while retrieving jobs'}, status=500)
-  
+   
