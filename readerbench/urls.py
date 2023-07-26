@@ -68,4 +68,5 @@ urlpatterns = [
     path('services/qgen/test', generate_test),
     path('pipeline/models/<int:model_id>/predict', model_predict),
     path('pipeline/models', get_models),
+    path('services/diacritics', restore_diacritics),
 ]

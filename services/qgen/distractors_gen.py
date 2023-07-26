@@ -9,7 +9,7 @@ import nltk
 import requests
 from SPARQLWrapper import JSON, SPARQLWrapper
 
-from services.qgen.utils import get_fitness_loss_no_finetune, load_models
+from services.qgen.utils import generate_mlm_distractors, get_answer_loss, get_entailment, get_fitness_loss_no_finetune, load_models
 
 # nltk.download('wordnet')
 # nltk.download('stopwords')
@@ -277,3 +277,4 @@ def generate_distractors(text, answers):
             "answer": answer,
             "distractors": [dist[0] for dist in distractors]
         })
+    return result
