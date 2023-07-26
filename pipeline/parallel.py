@@ -3,6 +3,7 @@ import logging
 from typing import Dict
 
 import pyphen
+import torch
 import tensorflow as tf
 from rb import Document, Lang
 from rb.cna.cna_graph import CnaGraph
@@ -15,7 +16,7 @@ from rb.utils.rblogger import Logger
 def build_features(text: str, lang: Lang) -> Dict[str, float]:
     Logger.get_logger().setLevel(logging.WARNING)
     tf.config.run_functions_eagerly(True)
-    tf.config.set_visible_devices([], "GPU")
+    tf.config.set_visible_devices([], 'GPU')
     doc = Document(lang, text)
     model = create_vector_model(lang, VectorModelType.TRANSFORMER, "")
     model.encode(doc)

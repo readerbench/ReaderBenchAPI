@@ -10,6 +10,7 @@ pyarrow
 ray[tune]
 rbpy-rb>=0.11.2
 sense2vec
+sentence-transformers
 SPARQLWrapper
 tensorflow
 tf2crf

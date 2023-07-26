@@ -22,7 +22,7 @@ from rest_framework import generics, permissions, serializers
 from pipeline.views import get_models, get_result, model_predict, process_dataset
 from services.views import (add_dataset, clasify_aes, feedbackPost,
                             fluctuations, generate_test, get_datasets, get_hypernyms,
-                            get_indices, get_jobs, get_languages, get_potential_answers, keywords,
+                            get_indices, get_job, get_jobs, get_languages, get_potential_answers, keywords,
                             keywordsHeatmap, process_cscl, restore_diacritics,
                             ro_correct_text, similar_concepts, syllables)
 
@@ -61,6 +61,7 @@ urlpatterns = [
     path('services/datasets', get_datasets),
     path('services/languages', get_languages),
     path('services/jobs', get_jobs),
+    path('services/jobs/<int:job_id>', get_job),
     path('services/jobs/<int:job_id>/result', get_result),
     path('services/datasets/<int:dataset_id>/process', process_dataset),
     path('services/qgen/answers', get_potential_answers),

@@ -3,6 +3,7 @@ import json
 from typing import Dict, List
 
 import numpy as np
+import ray
 import tensorflow as tf
 from ray import tune
 from ray.air import Result
@@ -18,13 +19,13 @@ from pipeline.task import TargetType, Task
 class BertPredictor(Predictor):
     def __init__(self, lang: Lang, tasks: List[Task]):
         super().__init__(lang, tasks)
-        self.time_budget = datetime.timedelta(hours=2)
-        self.resources = {"cpu": 8, "gpu": 0}
+        self.time_budget = datetime.timedelta(hours=4)
+        self.workers = 1
         
     def load_data(self, texts, features, targets):
-        self.texts = texts
-        self.features = features
-        self.targets = targets
+        self.texts = ray.put(texts)
+        self.features = ray.put(features)
+        self.targets = ray.put(targets)
     
     def get_config(self):
         if self.lang is Lang.EN:
@@ -66,7 +67,9 @@ class BertPredictor(Predictor):
             if config["use_features"]:
                 emb = tf.keras.layers.Concatenate(axis=-1)([emb, inputs[2+i]])
             hidden = tf.keras.layers.Dense(config["hidden"], activation="relu")(emb)
-            if task.type is TargetType.STR:
+            if task.binary:
+                output = tf.keras.layers.Dense(1, activation="sigmoid", name=task.name)(hidden)
+            elif task.type is TargetType.STR:
                 output = tf.keras.layers.Dense(len(task.classes), activation="softmax", name=task.name)(hidden)
             else:
                 output = tf.keras.layers.Dense(1, activation=None, name=task.name)(hidden)
@@ -77,12 +80,17 @@ class BertPredictor(Predictor):
         return model
 
     def train(self, config, validation=True):
+        # gpus = tf.config.list_physical_devices('GPU')
+        # tf.config.set_visible_devices(gpus[1], 'GPU')
         model = self.create_model(config)
         tokenizer = AutoTokenizer.from_pretrained(config["model"])
+        texts = ray.get(self.texts)
+        features = ray.get(self.features)
+        targets = ray.get(self.targets)
         if validation:
-            processed = tokenizer(self.texts["train"], padding="max_length", truncation=True, max_length=512, return_tensors="np") 
+            processed = tokenizer(texts["train"], padding="max_length", truncation=True, max_length=512, return_tensors="np") 
         else:
-            processed = tokenizer(self.texts["train"] + self.texts["val"], padding="max_length", truncation=True, max_length=512, return_tensors="np") 
+            processed = tokenizer(texts["train"] + texts["val"], padding="max_length", truncation=True, max_length=512, return_tensors="np") 
         train_inputs = [
             processed["input_ids"], 
             processed["attention_mask"], 
@@ -91,12 +99,12 @@ class BertPredictor(Predictor):
         for i, task in enumerate(self.tasks):
             if validation:
                 if config["use_features"]:
-                    train_inputs.append(np.array([self.features["train"][key] for key in task.features]).transpose())
-                train_outputs.append(np.array(self.targets["train"][i])) 
+                    train_inputs.append(np.array([features["train"][key] for key in task.features]).transpose())
+                train_outputs.append(np.array(targets["train"][i])) 
             else:
                 if config["use_features"]:
-                    train_inputs.append(np.array([self.features["train"][key] + self.features["val"][key] for key in task.features]).transpose())
-                train_outputs.append(np.array(self.targets["train"][i] + self.targets["val"][i])) 
+                    train_inputs.append(np.array([features["train"][key] + features["val"][key] for key in task.features]).transpose())
+                train_outputs.append(np.array(targets["train"][i] + targets["val"][i])) 
         callbacks = []
         if validation:
             test_partition = "val"
@@ -104,7 +112,7 @@ class BertPredictor(Predictor):
             callbacks.append(ray_callback)
         else:
             test_partition = "test"
-        processed = tokenizer(self.texts[test_partition], padding="max_length", truncation=True, max_length=512, return_tensors="np") 
+        processed = tokenizer(texts[test_partition], padding="max_length", truncation=True, max_length=512, return_tensors="np") 
         test_inputs = [
             processed["input_ids"], 
             processed["attention_mask"], 
@@ -112,20 +120,25 @@ class BertPredictor(Predictor):
         test_outputs = []
         for i, task in enumerate(self.tasks):
             if config["use_features"]:
-                test_inputs.append(np.array([self.features[test_partition][key] for key in task.features]).transpose())
-            test_outputs.append(np.array(self.targets[test_partition][i])) 
+                test_inputs.append(np.array([features[test_partition][key] for key in task.features]).transpose())
+            test_outputs.append(np.array(targets[test_partition][i])) 
         validation_data=(test_inputs, test_outputs)
         
         optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=config["lr"])
-        losses = ["sparse_categorical_crossentropy" if task.type is TargetType.STR else "mse" for task in self.tasks]
-        metrics = [
-            [tf.keras.metrics.SparseCategoricalAccuracy(name=f"Accuracy_{task.name}")] 
-            if task.type is TargetType.STR 
-            else [tf.keras.metrics.MeanAbsoluteError(name=f"MAE_{task.name}")] 
-            for task in self.tasks
-        ]
+        losses = []
+        metrics = []
+        for task in self.tasks:
+            if task.binary:
+                losses.append("binary_crossentropy")
+                metrics.append(tf.keras.metrics.BinaryAccuracy(name=f"Accuracy_{task.name}"))
+            elif task.type is TargetType.STR:
+                losses.append("sparse_categorical_crossentropy")
+                metrics.append(tf.keras.metrics.SparseCategoricalAccuracy(name=f"Accuracy_{task.name}"))
+            else:
+                losses.append("mse")
+                metrics.append(tf.keras.metrics.MeanAbsoluteError(name=f"MAE_{task.name}"))
         model.compile(optimizer=optimizer, loss=losses, metrics=metrics)
-        history = model.fit(train_inputs, train_outputs, batch_size=12, epochs=config["finetune_epochs"], validation_data=validation_data, 
+        history = model.fit(train_inputs, train_outputs, batch_size=8, epochs=config["finetune_epochs"], validation_data=validation_data, 
             verbose=2, callbacks=callbacks)
         if not validation:
             metrics = {
@@ -133,7 +146,7 @@ class BertPredictor(Predictor):
                 for metric, values in history.history.items()
                 if metric.startswith("val")
             }
-            predictions = model.predict(test_inputs, batch_size=12)
+            predictions = model.predict(test_inputs, batch_size=16)
             if len(self.tasks) == 1:
                 predictions = [predictions]
             for task, output, pred in zip(self.tasks, test_outputs, predictions):

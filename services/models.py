@@ -1,3 +1,4 @@
+import json
 from django.db import models
 from django.conf import settings
 
@@ -27,3 +28,23 @@ class Job(models.Model):
     elapsed_seconds = models.IntegerField(default=0)
     params = models.TextField(default="{}")
     results = models.TextField(default="{}")
+
+    def to_dict(self):
+        from pipeline.models import Model
+        params = json.loads(self.params)
+        if "dataset_id" in params:
+            params["dataset"] = Dataset.objects.get(id=params["dataset_id"]).name
+            del params["dataset_id"]
+        if "model_id" in params:
+            params["model"] = Model.objects.get(id=params["model_id"]).type.label
+            del params["model_id"]
+        return {
+            "id": self.id,
+            "status": self.status_id,
+            "type": self.type_id,
+            "params": params,
+            "results": json.loads(self.results),
+            "submit_time": self.submit_time.timestamp(),
+            "elapsed_time": self.elapsed_seconds,
+        }
+            

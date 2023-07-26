@@ -9,22 +9,20 @@ import nltk
 import requests
 from SPARQLWrapper import JSON, SPARQLWrapper
 
-from services.qgen.utils import get_fitness_loss_no_finetune
+from services.qgen.utils import get_fitness_loss_no_finetune, load_models
 
-nltk.download('wordnet')
-nltk.download('stopwords')
-nltk.download('punkt')
-nltk.download('averaged_perceptron_tagger')
-nltk.download('universal_tagset')
+# nltk.download('wordnet')
+# nltk.download('stopwords')
+# nltk.download('punkt')
+# nltk.download('averaged_perceptron_tagger')
+# nltk.download('universal_tagset')
 
 import re
 
 from nltk.corpus import wordnet as wn
-from sense2vec import Sense2Vec
 
-s2v = Sense2Vec().from_disk('models/s2v_reddit_2019_lg')
 from collections import OrderedDict
-
+from nltk import sent_tokenize
 
 def get_distractors_wordnet(word):
     syn = wn.synsets(word,'n')[0]
@@ -68,7 +66,7 @@ def get_distractors_conceptnet(word):
                    
     return distractor_list
 
-def get_distractors_sense2vec(word):
+def get_distractors_sense2vec(word, s2v):
     output = []
     word = word.lower()
     word = word.replace(" ", "_")
@@ -180,3 +178,102 @@ def get_distractors_dbpedia4(input_uri):
 
 def get_distractors_context(predicate, triplets):
     return [t['tail'] for t in triplets if t['type'] ==  predicate]
+
+def generate_all_distractors(context, question, answer, answer_containing_sentence, num_distractors=3, models=None):
+
+    if models is None:
+        models = load_models()
+    distractors = []
+    blanked_sentence = answer_containing_sentence.replace(answer, '**blank**')
+    #distractors += utils.generate_distractors_answer(context.replace(answer_containing_sentence, ''), question)
+    distractors += generate_mlm_distractors(context.replace(answer_containing_sentence, blanked_sentence), answer, models)
+    try:
+        input_uri = locate_dbpedia_uri(answer, blanked_sentence)
+    except:
+        pass
+    try:
+        distractors += get_distractors_dbpedia2(input_uri)
+    except:
+        pass
+    try:
+        distractors += get_distractors_dbpedia3(input_uri)
+    except:
+        pass
+    try:
+        distractors += get_distractors_dbpedia4(input_uri)
+    except:
+        pass
+    try:
+        distractors += get_distractors_wordnet(answer)
+    except:
+        pass
+    try:
+        distractors += get_distractors_conceptnet(answer)
+    except:
+        pass
+    try:
+        distractors += get_distractors_sense2vec(answer, models["s2v"])
+    except:
+        pass
+
+    answer_pos_tag = nltk.pos_tag([answer], tagset='universal')[0][1]
+    distractors_pos_tags = nltk.pos_tag(distractors, tagset='universal')
+    distractors = [dist for dist, pos in distractors_pos_tags if pos == answer_pos_tag]
+
+    # Filter entailment
+    first_sentences = [answer_containing_sentence for _ in distractors]
+    second_sentences = [answer_containing_sentence.replace(answer, d) for d in distractors]
+
+    nli_labels = get_entailment(first_sentences, second_sentences, models)
+
+    distractors_to_keep = [d for d, l in zip(distractors, nli_labels) if l == 'contradiction']
+    distractors_to_discard = [d for d, l in zip(distractors, nli_labels) if l == 'entailment']
+
+    qa_losses = get_answer_loss(context, question, distractors_to_keep, models)
+
+    distractors_losses = zip(distractors_to_keep, qa_losses)
+    distractors_losses = sorted(distractors_losses, key=lambda x: x[1])
+
+    final_distractors = [distractors_losses[0]]
+    i = 1
+    while len(final_distractors) < num_distractors or i == len(distractors_losses):
+        first_sentences = [answer_containing_sentence.replace(answer, d[0]) for d in final_distractors]
+        second_sentences = [answer_containing_sentence.replace(answer, distractors_losses[i][0]) for _ in final_distractors]
+        nli_labels = get_entailment(first_sentences, second_sentences, models)
+        nli_labels += get_entailment(second_sentences, first_sentences, models)
+        if 'entailment' not in nli_labels:
+            final_distractors.append(distractors_losses[i])
+        i += 1
+
+    return final_distractors
+
+def generate_distractors(text, answers):
+    sentences = sent_tokenize(text)
+    index = 0
+    sent_start = []
+    for sent in sentences:
+        if not text[index:].startswith(sent):
+            index += 1
+        sent_start.append(index)
+        index += len(sent)    
+    result = []
+    models = load_models()
+    for answer_obj in answers:
+        start = answer_obj["start"]
+        end = answer_obj["end"]
+        answer = text[start:end]
+        prompt = f"Generate a question based on the context and the answer.\n Context: {text}\nAnswer: {answer}"
+        input_ids = models["qall_tokenizer"](prompt, return_tensors="tf").input_ids
+        prediction = models["qall_model"].generate(input_ids=input_ids, max_new_tokens=128,  
+                                    num_return_sequences=1, penalty_alpha=0.6, top_k=8)
+        question = models["qall_tokenizer"].decode(prediction[0], skip_special_tokens=True)
+        for i, idx in enumerate(sent_start):
+            if start < idx:
+                break
+        sent = sentences[i-1]
+        distractors = generate_all_distractors(text, question, answer, sent, num_distractors=3, models=models)
+        result.append({
+            "question": question,
+            "answer": answer,
+            "distractors": [dist[0] for dist in distractors]
+        })

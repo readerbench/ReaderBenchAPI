@@ -9,6 +9,7 @@ from django.core.management.base import BaseCommand
 from django.db.models import Q
 from joblib import Parallel, delayed
 from rb import Lang
+import tensorflow as tf
 
 from pipeline.enums import ModelTypeEnum
 from pipeline.models import Model
@@ -36,7 +37,7 @@ def process(job: Job):
             task_names = header[1:]
         split(dataset)
         for partition in ["train", "val", "test"]:
-            with Parallel(n_jobs=4, prefer="processes", verbose=100) as parallel:
+            with Parallel(n_jobs=8, prefer="processes", verbose=100) as parallel:
                 features = parallel( \
                     delayed(build_features)(row[0], lang) \
                     for row in generator(dataset, partition))
@@ -141,6 +142,9 @@ class Command(BaseCommand):
     help = 'Runs pipeline jobs'
 
     def handle(self, *args, **options):
+        os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+        gpus = tf.config.list_physical_devices('GPU')
+        tf.config.set_visible_devices(gpus[1], 'GPU')
         while True:
             job = Job.objects \
                 .filter(status_id=JobStatusEnum.PENDING.value) \

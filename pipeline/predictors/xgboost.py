@@ -1,9 +1,11 @@
+import datetime
 import json
 import os
 from typing import Dict, List
 
 import numpy as np
 from ray import tune
+import ray
 from ray.air import session, Result
 from ray.tune.integration.xgboost import TuneReportCallback
 from rb import Lang
@@ -18,16 +20,18 @@ class XGBoostPredictor(Predictor):
         super().__init__(lang, [task])
         self.task = task
         self.model: xgb.XGBModel = None
-        
+        self.time_budget = datetime.timedelta(minutes=10)
+        self.workers = 8
+
     def load_data(self, features, targets):
-        self.features = features
-        self.targets = targets
-        self.train_x = np.array([features["train"][key] for key in self.task.features]).transpose()
-        self.train_y = targets["train"]
-        self.val_x = np.array([features["val"][key] for key in self.task.features]).transpose()
-        self.val_y = targets["val"]
-        self.test_x = np.array([features["test"][key] for key in self.task.features]).transpose()
-        self.test_y = targets["test"]
+        self.features = ray.put(features)
+        self.targets = ray.put(targets)
+        self.train_x = ray.put(np.array([features["train"][key] for key in self.task.features]).transpose())
+        self.train_y = ray.put(targets["train"])
+        self.val_x = ray.put(np.array([features["val"][key] for key in self.task.features]).transpose())
+        self.val_y = ray.put(targets["val"])
+        self.test_x = ray.put(np.array([features["test"][key] for key in self.task.features]).transpose())
+        self.test_y = ray.put(targets["test"])
         
     def get_config(self):
         config = {
@@ -50,14 +54,16 @@ class XGBoostPredictor(Predictor):
         callbacks = []
         evals = []
         if validation:
-            train_set = xgb.DMatrix(self.train_x, label=self.train_y)
-            test_set = xgb.DMatrix(self.val_x, label=self.val_y)
+            train_set = xgb.DMatrix(ray.get(self.train_x), label=ray.get(self.train_y))
+            test_set = xgb.DMatrix(ray.get(self.val_x), label=ray.get(self.val_y))
             ray_callback = TuneReportCallback()
             callbacks.append(ray_callback)
             evals.append((test_set, "eval"))
         else:
-            train_set = xgb.DMatrix(np.concatenate([self.train_x, self.val_x], axis=0), label=np.concatenate([self.train_y, self.val_y], axis=0)) 
-            test_set = xgb.DMatrix(self.test_x, label=self.test_y)
+            train_set = xgb.DMatrix(np.concatenate([
+                ray.get(self.train_x), ray.get(self.val_x)], axis=0), 
+                label=np.concatenate([ray.get(self.train_y), ray.get(self.val_y)], axis=0)) 
+            test_set = xgb.DMatrix(ray.get(self.test_x), label=ray.get(self.test_y))
         model = xgb.train(
             config,
             train_set,
@@ -67,19 +73,20 @@ class XGBoostPredictor(Predictor):
         )
         if not validation:
             predicted = model.predict(test_set, validate_features=False)
-            if self.task.type is TargetType.STR:
+            test_y = ray.get(self.test_y)
+            if self.task.type is TargetType.STR or self.binary:
                 if len(self.task.classes) == 2:
                     average = "binary"
                 else:
                     average = "macro"
                 metrics = {
-                    "accuracy": accuracy_score(self.test_y, predicted),
-                    "f1_score": f1_score(self.test_y, predicted, average=average)
+                    "accuracy": accuracy_score(test_y, predicted),
+                    "f1_score": f1_score(test_y, predicted, average=average)
                 }
             else:
                 metrics = {
-                    "mae": mean_absolute_error(self.test_y, predicted),
-                    "r2_score": r2_score(self.test_y, predicted),
+                    "mae": mean_absolute_error(test_y, predicted),
+                    "r2_score": r2_score(test_y, predicted),
                 }
             self.model = model
             return metrics    

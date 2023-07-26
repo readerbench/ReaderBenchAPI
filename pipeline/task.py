@@ -17,10 +17,14 @@ class Task:
                 else:
                     self.__dict__[key] = value
         else:
+            self.binary = False
             if type is TargetType.INT:
                 values = [int(val) for val in values]
                 self.max = max(values)
                 self.min = min(values)
+                if self.max - self.min == 1 and len(set(values)) == 2:
+                    self.binary = True
+                    self.classes = [0, 1]
             elif type is TargetType.FLOAT:
                 values = [float(val) for val in values]
                 self.min = min(values)
@@ -34,7 +38,9 @@ class Task:
     def convert_targets(self, values):
         result = []
         for val in values:
-            if self.type is TargetType.STR:
+            if self.binary:
+                result.append(int(val))
+            elif self.type is TargetType.STR:
                 result.append(self.index[val])
             else:
                 result.append((float(val) - self.min) / (self.max - self.min))

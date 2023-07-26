@@ -3,13 +3,14 @@ import string
 from typing import Dict, List
 
 import tensorflow as tf
+from cleantext import clean
 from nltk import sent_tokenize
 from rb import Lang
 from rb.parser.spacy_parser import SpacyParser
 from transformers import AutoTokenizer, TFT5ForConditionalGeneration
-from services.qgen.dqn import DQAgent, get_largest_indexes
 
 from services.qgen import environment
+from services.qgen.dqn import DQAgent, get_largest_indexes
 
 
 def spacy_gen(text: str) -> List[Dict]:
@@ -31,7 +32,7 @@ def normalize(text: str) -> str:
     return text
 
 def oracle_gen(text: str) -> List[Dict]:
-    tf.config.set_visible_devices([], 'GPU')
+    # tf.config.set_visible_devices([], 'GPU')
     tokenizer = AutoTokenizer.from_pretrained('readerbench/AG-Flan-T5-large')
     model = TFT5ForConditionalGeneration.from_pretrained('readerbench/AG-Flan-T5-large')
     prompt = f"Select an answer from the context that can be used to generate a question:\nContext: {text}"
@@ -101,3 +102,14 @@ def rl_gen(text) -> List[Dict]:
                 })
                 break
     return all_answers
+
+def generate_answers(text: str) -> List[Dict]:
+    text = clean(text, fix_unicode=True, to_ascii=True, lower=False, no_urls=True, no_emails=True, no_phone_numbers=True)
+    result = []
+    result += spacy_gen(text)
+    result += oracle_gen(text)
+    result += rl_gen(text)
+    return {
+        "text": text,
+        "answers": result
+    }

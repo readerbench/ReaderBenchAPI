@@ -18,7 +18,7 @@ class Predictor():
         self.lang = lang
         self.tasks = tasks
         self.time_budget = datetime.timedelta(minutes=10)
-        self.resources = {"cpu": 4, "gpu": 0}
+        self.workers = 1
 
     @abstractmethod
     def load_data(self, features, targets):
@@ -47,16 +47,6 @@ class Predictor():
         return "val_loss"
 
     def search_config(self) -> Result:
-        # config = {
-        #     "model": "camembert-base",
-        #     "use_features": True,
-        #     "pooler": True,
-        #     "hidden": 32, 
-        #     "lr": 5e-5,
-        #     "finetune_epochs": 5,
-        # }
-        # self.train(config)
-        # exit()
         reporter = tune.CLIReporter(max_progress_rows=10, max_report_frequency=60)
         metric = self.get_metric()
         optuna_search = OptunaSearch(
@@ -64,16 +54,14 @@ class Predictor():
             mode="min")
         asha_scheduler = ASHAScheduler(metric=metric, mode="min")
         tuner = tune.Tuner(
-            tune.with_resources(
-                self.train,
-                resources=self.resources
-            ),
+            tune.with_resources(self.train, {"cpu": 4, "gpu": 1}),
             tune_config=tune.TuneConfig(
                 search_alg=optuna_search,
                 scheduler=asha_scheduler,
                 num_samples=-1,
                 time_budget_s=self.time_budget,
                 reuse_actors=False,
+                max_concurrent_trials=self.workers,
             ),
             param_space = self.get_config(),
             run_config=RunConfig(progress_reporter=reporter, verbose=1)
