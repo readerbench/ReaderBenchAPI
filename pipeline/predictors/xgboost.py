@@ -40,7 +40,7 @@ class XGBoostPredictor(Predictor):
             "subsample": tune.uniform(0.5, 1.0),
             "eta": tune.loguniform(1e-4, 1e-1)
         }
-        if self.task.type is TargetType.STR:
+        if self.task.type is TargetType.STR or self.task.binary:
             config["objective"] = "multi:softmax"
             config["eval_metric"] = ["mlogloss"]
             config["num_class"] = len(self.task.classes)
@@ -74,7 +74,7 @@ class XGBoostPredictor(Predictor):
         if not validation:
             predicted = model.predict(test_set, validate_features=False)
             test_y = ray.get(self.test_y)
-            if self.task.type is TargetType.STR or self.binary:
+            if self.task.type is TargetType.STR or self.task.binary:
                 if len(self.task.classes) == 2:
                     average = "binary"
                 else:

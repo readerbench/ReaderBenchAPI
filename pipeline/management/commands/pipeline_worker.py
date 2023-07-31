@@ -1,6 +1,7 @@
 import csv
 import json
 import logging
+import multiprocessing
 import os
 import time
 from datetime import datetime
@@ -35,9 +36,10 @@ def process(job: Job):
             reader = csv.reader(f)
             header = next(reader)
             task_names = header[1:]
-        split(dataset)
+        if not os.path.exists(f"{root}/train.txt"):
+            split(dataset)
         for partition in ["train", "val", "test"]:
-            with Parallel(n_jobs=8, prefer="processes", verbose=100) as parallel:
+            with Parallel(n_jobs=16, prefer="processes", verbose=100) as parallel:
                 features = parallel( \
                     delayed(build_features)(row[0], lang) \
                     for row in generator(dataset, partition))
@@ -159,9 +161,11 @@ class Command(BaseCommand):
                 continue
             print(f"Starting pipeline job {job.id}...")
             if job.type_id == JobTypeEnum.PIPELINE.value:
-                process(job)
+                p = multiprocessing.Process(target=process, args=[job])
             else:
-                predict(job)
+                p = multiprocessing.Process(target=predict, args=[job])
+            p.start()
+            p.join()
             print(f"Pipeline job {job.id} finished")
             
 

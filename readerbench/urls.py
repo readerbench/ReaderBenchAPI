@@ -20,8 +20,8 @@ from oauth2_provider.contrib.rest_framework import TokenHasReadWriteScope
 from rest_framework import generics, permissions, serializers
 
 from pipeline.views import get_models, get_result, model_predict, process_dataset
-from services.views import (add_dataset, clasify_aes, feedbackPost,
-                            fluctuations, generate_test, get_datasets, get_hypernyms,
+from services.views import (add_dataset, clasify_aes, delete_dataset, feedbackPost,
+                            fluctuations, generate_test, get_dataset, get_datasets, get_hypernyms,
                             get_indices, get_job, get_jobs, get_languages, get_potential_answers, keywords,
                             keywordsHeatmap, process_cscl, restore_diacritics,
                             ro_correct_text, similar_concepts, syllables)
@@ -59,6 +59,8 @@ urlpatterns = [
     path('services/cscl', process_cscl),
     path('services/datasets/add', add_dataset),
     path('services/datasets', get_datasets),
+    path('services/datasets/<int:dataset_id>', get_dataset),
+    path('services/datasets/<int:dataset_id>/delete', delete_dataset),
     path('services/languages', get_languages),
     path('services/jobs', get_jobs),
     path('services/jobs/<int:job_id>', get_job),

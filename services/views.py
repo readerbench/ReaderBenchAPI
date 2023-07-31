@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+from shutil import rmtree
 import zipfile
 from os import rmdir
 from typing import Dict
@@ -22,6 +23,7 @@ from rb.similarity.vector_model_factory import create_vector_model
 from rb.utils.utils import str_to_lang
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from pipeline.models import Model
 
 from services import cscl
 from services.feedback import feedback
@@ -266,7 +268,48 @@ def get_datasets(request):
         return JsonResponse({"datasets": datasets}, safe=False)
     except Exception as ex:
         return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error while retrieving datasets'}, status=500)
- 
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def get_dataset(request, dataset_id):
+    try:
+        user_id = request.user.id if request.user.id is not None else 1
+        dataset = get_object_or_404(Dataset, id=dataset_id)
+        if dataset.user_id != user_id:
+            return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Unauthorized access'}, status=403)
+        job = Job.objects.filter(type_id=JobTypeEnum.PIPELINE.value, dataset_id=dataset_id).order_by("-id").first()
+        processed = 0 if job is None else job.status_id
+        result = {
+            "id": dataset.id,
+            "name": dataset.name,
+            "language": dataset.lang_id,
+            "number_of_tasks": dataset.num_cols,
+            "number_of_entries": dataset.num_rows,
+            "processed": processed,
+            "indices": False,
+        }
+        return JsonResponse(result, safe=False)
+    except Exception as ex:
+        return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error while retrieving datasets'}, status=500)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def delete_dataset(request, dataset_id):
+    # try:
+    user_id = request.user.id if request.user.id is not None else 1
+    dataset = get_object_or_404(Dataset, id=dataset_id)
+    if dataset.user_id != user_id:
+        return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Unauthorized access'}, status=403)
+    for model in Model.objects.filter(dataset_id=dataset_id).all():
+        rmtree(f"data/models/{model.id}")
+        model.delete()
+    rmtree(f"data/datasets/{dataset_id}")
+    dataset.delete()    
+    return JsonResponse({"success": True}, safe=False)
+    # except Exception as ex:
+    #     return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error deleting dataset'}, status=500)
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def get_languages(request):

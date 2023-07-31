@@ -24,6 +24,7 @@ class Job(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     type = models.ForeignKey(JobType, on_delete=models.CASCADE)
     status = models.ForeignKey(JobStatus, on_delete=models.CASCADE)
+    dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, null=True)
     submit_time = models.DateTimeField(auto_now_add=True)
     elapsed_seconds = models.IntegerField(default=0)
     params = models.TextField(default="{}")
@@ -32,9 +33,12 @@ class Job(models.Model):
     def to_dict(self):
         from pipeline.models import Model
         params = json.loads(self.params)
-        if "dataset_id" in params:
-            params["dataset"] = Dataset.objects.get(id=params["dataset_id"]).name
-            del params["dataset_id"]
+        dataset = None
+        if self.dataset_id is not None:
+            dataset = {
+                "id": self.dataset_id,
+                "name": self.dataset.name,
+            }
         if "model_id" in params:
             params["model"] = Model.objects.get(id=params["model_id"]).type.label
             del params["model_id"]
@@ -42,6 +46,7 @@ class Job(models.Model):
             "id": self.id,
             "status": self.status_id,
             "type": self.type_id,
+            "dataset": dataset,
             "params": params,
             "results": json.loads(self.results),
             "submit_time": self.submit_time.timestamp(),

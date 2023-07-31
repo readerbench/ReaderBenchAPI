@@ -65,7 +65,8 @@ class BertPredictor(Predictor):
         outputs = []
         for i, task in enumerate(self.tasks):
             if config["use_features"]:
-                emb = tf.keras.layers.Concatenate(axis=-1)([emb, inputs[2+i]])
+                features = tf.keras.layers.BatchNormalization()(inputs[2+i])
+                emb = tf.keras.layers.Concatenate(axis=-1)([emb, features])
             hidden = tf.keras.layers.Dense(config["hidden"], activation="relu")(emb)
             if task.binary:
                 output = tf.keras.layers.Dense(1, activation="sigmoid", name=task.name)(hidden)

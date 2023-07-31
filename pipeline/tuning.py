@@ -1,5 +1,6 @@
 import datetime
 import json
+import time
 from typing import Dict, List
 
 import numpy as np
@@ -30,6 +31,7 @@ def hyperparameter_search(dataset: Dataset, job: Job, tasks: List[Task], feature
         predictor = predictor_type.predictor()(lang, tasks)
         predictor.load_data(texts, features, targets)
         best_result = predictor.search_config()
+        time.sleep(10) # wait for gpu memory to be cleared
         config = predictor.process_result(best_result)
         metrics = predictor.train(config, validation=False)
         obj = Model()
@@ -40,3 +42,6 @@ def hyperparameter_search(dataset: Dataset, job: Job, tasks: List[Task], feature
         obj.metrics = json.dumps(metrics)
         obj.save()
         predictor.save(obj)
+        del predictor
+        tf.keras.backend.clear_session()
+        
