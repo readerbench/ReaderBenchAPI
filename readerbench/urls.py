@@ -18,6 +18,7 @@ from django.urls import include, path
 from django.contrib.auth import get_user_model
 from rest_framework import generics, permissions, serializers
 from oauth2_provider.contrib.rest_framework import TokenHasReadWriteScope
+from readerbench.view import UserRegister
 
 # Serializers
 class UserSerializer(serializers.ModelSerializer):
@@ -37,4 +38,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     path('users/me', CurrentUser.as_view()),
+    path('users/register', UserRegister.as_view()),
 ]
