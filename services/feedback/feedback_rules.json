@@ -1,0 +1,243 @@
+{
+    "document":[
+        {
+            "id":"SumCohesion",
+            "type":"aggregate",
+            "operation":"sum",
+            "indices":[
+                "(StartEndCoh / Doc)",
+                "(StartMidCoh / Doc)",
+                "(MidEndCoh / Doc)"
+            ],
+            "name":"Coeziunea textului",
+            "min":0.7,
+            "feedbackMessagesLow":[
+                "Aveti o coeziune prea mica a textului."
+            ],
+            "feedbackMessagesHigh":[
+                "Aveti o coeziune prea mare a textului."
+            ]
+        },
+        {
+            "id":"M(WdEntr / Doc)",
+            "type":"index",
+            "name":"Diversitatea conceptelor",
+            "min":4,
+            "max":6,
+            "feedbackMessagesLow":[
+                "La nivel global aveți o diversitate prea mică a lexicului utilizat. Vă recomandăm introducerea de noi concepte pentru varietate și pentru a evita monotonia."
+            ],
+            "feedbackMessagesHigh":[
+                "Eseul are o diversitate prea mare a lexicului utilizat. Vă recomandăm reducerea numărului de concepte unice utilizate."
+            ]
+        },
+        {
+            "id":"(ParAdjCoh / Doc)",
+            "type":"index",
+            "name":"Coeziune inter paragraf, bazată per word2vec",
+            "min":0.5,
+            "feedbackMessagesLow":[
+                "Textul are o coeziune globală scăzută între paragrafe. Vă recomandăm construirea unei structurii în cadrul căreia să maximizați coeziunea între paragrafe adiacente."
+            ],
+            "feedbackMessagesHigh":[
+                "Textul are o coeziune globală ridicată între paragrafe. Vă recomandăm construirea unei structurii în cadrul căreia să diversificați conceptele abordate între paragrafe adiacente."
+            ]
+        },
+        {
+            "id":"M(SentAdjCoh / Par)",
+            "type":"index",
+            "name":"Coeziune intra paragraf, bazată per word2vec",
+            "min":0.461116332,
+            "max":1.0,
+            "feedbackMessagesLow":[
+                "Textul are o coeziune locală scăzută între propozițiile incluse În paragrafe. Vă recomandăm prezentarea cursivă și legată a ideilor subsecvente în cadrul paragrafelor. "
+            ],
+            "feedbackMessagesHigh":[
+                "Textul are un nivel de coeziune prea ridcat. Vă recomandăm diversificarea conceptelor și a exprimării."
+            ]
+        }
+    ],
+    "pca":[
+        {
+            "id":"PC1",
+            "type":"pca",
+            "name":"Diversitate lexicală",
+            "min":-4,
+            "max":4,
+            "feedbackMessagesLow":[
+                "Textul prezintă informații despre un număr scăzut de concepte, folosind cuvinte simple. Se recomandă reformularea utilizând termeni mai complecși și diversificarea informației."
+            ],
+            "feedbackMessagesHigh":[
+                "Textul prezintă informații despre un număr crescut de concepte, multe cuvinte fiind complexe. Se recomandă reformularea utilizând termeni mai simpli și reducerea informației."
+            ]
+        },
+        {
+            "id":"PC2",
+            "type":"pca",
+            "name":"Complexitatea cuvintelor",
+            "min":-2.5,
+            "max":2.5,
+            "feedbackMessagesLow":[
+                "La nivel global aveți o diversitate mică a lexicului utilizat. Vă recomandăm introducerea de noi concepte pentru varietate și pentru a evita monotonia."
+            ],
+            "feedbackMessagesHigh":[
+                "Eseul are o diversitate prea mare a lexicului utilizat. Vă recomandăm reducerea numărului de concepte unice utilizate."
+            ]
+        },
+        {
+            "id":"PC3",
+            "type":"pca",
+            "name":"Coeziune locală",
+            "min":-1,
+            "max":1,
+            "feedbackMessagesLow":[
+                "Textul are o coeziune locală scăzută între paragrafe. Vă recomandăm construirea unei structurii în cadrul căreia să maximizați legătură semantică între paragrafe adiacente."
+            ],
+            "feedbackMessagesHigh":[
+                "Textul are o coeziune locală ridicată între paragrafe. Vă recomandăm construirea unei structurii în cadrul căreia să diversificați conceptele abordate între paragrafe adiacente."
+            ]
+        },
+        {
+            "id":"PC4",
+            "type":"pca",
+            "name":"Coeziune globală",
+            "min":-1,
+            "max":1,
+            "feedbackMessagesLow":[
+                "Textul are o coeziune globală scăzută între paragrafe. Vă recomandăm construirea unei structurii în cadrul căreia să maximizați legătură semantică între paragrafe adiacente."
+            ],
+            "feedbackMessagesHigh":[
+                "Textul are o coeziune globală ridicată între paragrafe. Vă recomandăm construirea unei structurii în cadrul căreia să diversificați conceptele abordate între paragrafe adiacente."
+            ]
+        }
+    ],
+    "block":[
+        {
+            "id":"M(POS_pron / Par)",
+            "type":"index",
+            "name":"Numărul de pronume",
+            "max":15,
+            "feedbackMessagesLow":[
+
+            ],
+            "feedbackMessagesHigh":[
+                "Paragraful indicat conține prea multe pronume."
+            ]
+        },
+        {
+            "id":"M(Repetitions / Par)",
+            "type":"index",
+            "name":"Repetarea conceptelor în paragrafe",
+            "max":5,
+            "feedbackMessagesLow":[
+                "Textul conține puține concepte noi. Vă recomandăm să diversificați informația."
+            ],
+            "feedbackMessagesHigh":[
+                "Textul conține informație prea diversă. Vă recomandăm ca noile concepte introduse să fie explicate și nuanțate."
+            ]
+        },
+        {
+            "id":"M(Sent / Par)",
+            "type":"index",
+            "name":"Numărul de propoziții",
+            "min":3,
+            "max":8,
+            "feedbackMessagesLow":[
+                "Paragraful curent conține prea puține propoziții. Vă recomandăm introducerea de detalii suplimentare pentru a accentua ideea centrală a paragrafului."
+            ],
+            "feedbackMessagesHigh":[
+                "Paragraful curent conține prea multe propoziții. Vă recomandăm fie unificarea de propoziții scurte, fie segmentarea paragrafului în două sau mai multe paragrafe coerente."
+            ]
+        },
+        {
+            "id":"M(IntraParCoh / Par)",
+            "type":"index",
+            "name":"Coeziunea între propoziții",
+            "min":0.25,
+            "max":1.0451,
+            "feedbackMessagesLow":[
+                "Textul are o coeziune locală scăzută între propozițiile incluse în paragraf. Vă recomandăm prezentarea cursivă și legată a ideilor subsecvente în cadrul paragrafului."
+            ],
+            "feedbackMessagesHigh":[
+
+            ]
+        },
+        {
+            "id":"M(Wd / Par)",
+            "type":"index",
+            "name":"Numărul de cuvinte",
+            "min":50,
+            "max":150,
+            "feedbackMessagesLow":[
+                "Paragraful indicat este mult prea scurt, vă recomandăm elaborarea ideilor."
+            ],
+            "feedbackMessagesHigh":[
+                "Paragraful indicat are prea mult cuvinte. Este indicată segmentarea acestuia."
+            ]
+        }
+    ],
+    "sentence":[
+        {
+            "id":"M(POS_pron / Sent)",
+            "type":"index",
+            "name":"Numărul de pronume",
+            "max":5,
+            "feedbackMessagesLow":[
+
+            ],
+            "feedbackMessagesHigh":[
+                "Fraza indicată conține prea multe pronume."
+            ]
+        },
+        {
+            "id":"M(ParseDepth / Sent)",
+            "type":"index",
+            "name":"Dificultatea frazei",
+            "max":7,
+            "feedbackMessagesLow":[
+
+            ],
+            "feedbackMessagesHigh":[
+                "Textul are o structura prea complexă. Vă recomandăm spargerea acestei în fraze sau propoziții mai simple."
+            ]
+        },
+        {
+            "id":"M(Dep_nsubj / Sent)",
+            "type":"index",
+            "name":"Structura frazei",
+            "max":3,
+            "feedbackMessagesLow":[
+
+            ],
+            "feedbackMessagesHigh":[
+                "Structura frazei este prea complexa, exista peste 3 propozitii imbricate care fac intelegerea anevoioasa. Recomandam spargerea frazei."
+            ]
+        },
+        {
+            "id":"M(Wd / Sent)",
+            "type":"index",
+            "name":"Numărul mediu de cuvinte per frază",
+            "min":5,
+            "max":35,
+            "feedbackMessagesLow":[
+                "Frazele sunt mult prea scurte, vă recomandăm elaborarea ideilor."
+            ],
+            "feedbackMessagesHigh":[
+                "Frazele conțin prea mult cuvinte. Este indicată segmentarea acestora."
+            ]
+        },
+        {
+            "id":"M(Repetitions / Sent)",
+            "type":"index",
+            "name":"Repetarea conceptelor în propoziții",
+            "min":0,
+            "max":3,
+            "feedbackMessagesLow":[
+                "Textul conține puține concepte noi. Vă recomandăm să diversificați informația."
+            ],
+            "feedbackMessagesHigh":[
+                "Textul conține informație prea diversă. Vă recomandăm ca noile concepte introduse să fie explicate și nuanțate."
+            ]
+        }
+    ]
+}

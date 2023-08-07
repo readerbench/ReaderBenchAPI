@@ -25,8 +25,9 @@ SECRET_KEY = 'django-insecure-g!%)x77t8qvnk0nw2wdgg9a^7p5#^gds8*fk6qcqu@!vr^s9(+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["readerbench.com", "localhost"]
 
+DATA_UPLOAD_MAX_MEMORY_SIZE = 2000000000
 
 # Application definition
 
@@ -40,12 +41,15 @@ INSTALLED_APPS = [
     'users',
     'oauth2_provider',
     'rest_framework',
+    'services',
+    'pipeline',
 ]
 
 AUTH_USER_MODEL='users.User'
 LOGIN_URL='/admin/login/'
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -54,6 +58,13 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+CORS_ORIGIN_WHITELIST = [
+    'https://readerbench.com', 
+    'http://localhost:8080', 
+    "https://d25o1z98amk0o3.cloudfront.net"
+]
+CSRF_TRUSTED_ORIGINS = ['https://readerbench.com']
 
 ROOT_URLCONF = 'readerbench.urls'
 
@@ -125,8 +136,10 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = "static"
 
+FORCE_SCRIPT_NAME = '/api/v2'
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 

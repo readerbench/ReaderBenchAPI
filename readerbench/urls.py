@@ -14,11 +14,19 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import include, path
 from django.contrib.auth import get_user_model
-from rest_framework import generics, permissions, serializers
+from django.urls import include, path
 from oauth2_provider.contrib.rest_framework import TokenHasReadWriteScope
 from readerbench.view import UserRegister
+from rest_framework import generics, permissions, serializers
+
+from pipeline.views import get_models, get_result, model_predict, process_dataset
+from services.views import (add_dataset, clasify_aes, delete_dataset, feedbackPost,
+                            fluctuations, generate_test, get_dataset, get_datasets, get_hypernyms,
+                            get_indices, get_job, get_jobs, get_languages, get_potential_answers, keywords,
+                            keywordsHeatmap, process_cscl, restore_diacritics,
+                            ro_correct_text, similar_concepts, syllables)
+
 
 # Serializers
 class UserSerializer(serializers.ModelSerializer):
@@ -39,4 +47,30 @@ urlpatterns = [
     path('oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     path('users/me', CurrentUser.as_view()),
     path('users/register', UserRegister.as_view()),
+    path('services/indices', get_indices),
+    path('services/ro-correct-text', ro_correct_text),
+    path('services/feedback', feedbackPost),
+    path('services/fluctuations', fluctuations),
+    path('services/keywords', keywords),
+    path('services/keywords-heatmap', keywordsHeatmap),
+    path('services/similar-concepts', similar_concepts),
+    path('services/hypernyms', get_hypernyms),
+    path('services/syllables', syllables),
+    path('services/diacritics', restore_diacritics),
+    path('services/aes', clasify_aes),
+    path('services/cscl', process_cscl),
+    path('services/datasets/add', add_dataset),
+    path('services/datasets', get_datasets),
+    path('services/datasets/<int:dataset_id>', get_dataset),
+    path('services/datasets/<int:dataset_id>/delete', delete_dataset),
+    path('services/languages', get_languages),
+    path('services/jobs', get_jobs),
+    path('services/jobs/<int:job_id>', get_job),
+    path('services/jobs/<int:job_id>/result', get_result),
+    path('services/datasets/<int:dataset_id>/process', process_dataset),
+    path('services/qgen/answers', get_potential_answers),
+    path('services/qgen/test', generate_test),
+    path('pipeline/models/<int:model_id>/predict', model_predict),
+    path('pipeline/models', get_models),
+    path('services/diacritics', restore_diacritics),
 ]
