@@ -17,6 +17,7 @@ from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.urls import include, path
 from oauth2_provider.contrib.rest_framework import TokenHasReadWriteScope
+from readerbench.view import UserRegister
 from rest_framework import generics, permissions, serializers
 
 from pipeline.views import get_models, get_result, model_predict, process_dataset
@@ -45,6 +46,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     path('users/me', CurrentUser.as_view()),
+    path('users/register', UserRegister.as_view()),
     path('services/indices', get_indices),
     path('services/ro-correct-text', ro_correct_text),
     path('services/feedback', feedbackPost),
