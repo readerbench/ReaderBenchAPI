@@ -9,11 +9,12 @@ import ray
 from ray.air import session, Result
 from ray.tune.integration.xgboost import TuneReportCallback
 from rb import Lang
+from sklearn.utils import compute_class_weight
 import xgboost as xgb
 from pipeline.predictors.predictor import Predictor
 
 from pipeline.task import TargetType, Task
-from sklearn.metrics import accuracy_score, r2_score, mean_absolute_error, f1_score
+from sklearn.metrics import accuracy_score, cohen_kappa_score, r2_score, mean_absolute_error, f1_score
 
 class XGBoostPredictor(Predictor):
     def __init__(self, lang: Lang, task: Task):
@@ -22,6 +23,11 @@ class XGBoostPredictor(Predictor):
         self.model: xgb.XGBModel = None
         self.time_budget = datetime.timedelta(minutes=10)
         self.workers = 8
+        if self.task.type is TargetType.STR or self.task.binary:
+            self.type = xgb.XGBClassifier
+        else:
+            self.type = xgb.XGBRegressor
+        
 
     def load_data(self, features, targets):
         self.features = ray.put(features)
@@ -32,14 +38,35 @@ class XGBoostPredictor(Predictor):
         self.val_y = ray.put(targets["val"])
         self.test_x = ray.put(np.array([features["test"][key] for key in self.task.features]).transpose())
         self.test_y = ray.put(targets["test"])
-        
+        if self.task.binary:
+            class_weights = compute_class_weight("balanced", classes=[0, 1], y=targets["train"])
+            self.train_weight = [class_weights[y] for y in targets["train"]]   
+            class_weights = compute_class_weight("balanced", classes=[0, 1], y=targets["val"])
+            self.val_weight = [class_weights[y] for y in targets["val"]]  
+        elif self.task.type is TargetType.STR:
+            class_weights = compute_class_weight("balanced", classes=range(len(self.task.classes)), y=targets["train"])
+            self.train_weight = [class_weights[y] for y in targets["train"]]
+            class_weights = compute_class_weight("balanced", classes=range(len(self.task.classes)), y=targets["val"])
+            self.val_weight = [class_weights[y] for y in targets["val"]]
+        else:
+            self.train_weight = [1. for y in targets["train"]]
+            self.val_weight = [1. for y in targets["val"]]
+            
     def get_config(self):
         config = {
+            "n_estimators": tune.choice([8, 16, 32, 64]),
             "max_depth": tune.randint(1, 9),
             "min_child_weight": tune.choice([1, 2, 3]),
             "subsample": tune.uniform(0.5, 1.0),
-            "eta": tune.loguniform(1e-4, 1e-1)
+            "learning_rate": tune.loguniform(1e-4, 1e-1)
         }
+        # config = {
+        #     "n_estimators": 8,
+        #     "max_depth": 4,
+        #     "min_child_weight": 2,
+        #     "subsample": 0.5,
+        #     "learning_rate": 1e-3
+        # }
         if self.task.type is TargetType.STR or self.task.binary:
             config["objective"] = "multi:softmax"
             config["eval_metric"] = ["mlogloss"]
@@ -52,27 +79,25 @@ class XGBoostPredictor(Predictor):
 
     def train(self, config, validation=True):
         callbacks = []
-        evals = []
         if validation:
-            train_set = xgb.DMatrix(ray.get(self.train_x), label=ray.get(self.train_y))
-            test_set = xgb.DMatrix(ray.get(self.val_x), label=ray.get(self.val_y))
+            train_x = ray.get(self.train_x)
+            train_y = ray.get(self.train_y)
+            test_x = ray.get(self.val_x)
+            test_y = ray.get(self.val_y)
             ray_callback = TuneReportCallback()
             callbacks.append(ray_callback)
-            evals.append((test_set, "eval"))
+            evals = [(test_x, test_y)]
+            sample_weight = self.train_weight
         else:
-            train_set = xgb.DMatrix(np.concatenate([
-                ray.get(self.train_x), ray.get(self.val_x)], axis=0), 
-                label=np.concatenate([ray.get(self.train_y), ray.get(self.val_y)], axis=0)) 
-            test_set = xgb.DMatrix(ray.get(self.test_x), label=ray.get(self.test_y))
-        model = xgb.train(
-            config,
-            train_set,
-            evals=evals,
-            verbose_eval=False,
-            callbacks=callbacks,
-        )
+            train_x = np.concatenate([ray.get(self.train_x), ray.get(self.val_x)], axis=0)
+            train_y = np.concatenate([ray.get(self.train_y), ray.get(self.val_y)], axis=0)
+            evals = None
+            sample_weight = self.train_weight + self.val_weight
+        model = self.type(**config, callbacks=callbacks)
+        model.fit(train_x, train_y, eval_set=evals, sample_weight=sample_weight)
+        
         if not validation:
-            predicted = model.predict(test_set, validate_features=False)
+            predicted = model.predict(ray.get(self.test_x))
             test_y = ray.get(self.test_y)
             if self.task.type is TargetType.STR or self.task.binary:
                 if len(self.task.classes) == 2:
@@ -88,12 +113,16 @@ class XGBoostPredictor(Predictor):
                     "mae": mean_absolute_error(test_y, predicted),
                     "r2_score": r2_score(test_y, predicted),
                 }
+                pred = [int(round(self.task.convert_prediction(float(p)), 0)) for p in predicted]
+                target = [int(round(self.task.convert_prediction(float(p)), 0)) for p in test_y]
+                metrics[f"qwk"] = cohen_kappa_score(target, pred, weights="quadratic")
+                
             self.model = model
             return metrics    
-        # session.report({"mean_accuracy": accuracy, "done": True})
-
+        
     def get_metric(self):
-        return "eval-" + self.get_config()["eval_metric"][0]
+        return "validation_0-" + self.get_config()["eval_metric"][0]
+
     
 class XGBoostMultiPredictor(Predictor):
 
@@ -119,7 +148,7 @@ class XGBoostMultiPredictor(Predictor):
         
     def load(self, model_obj: "Model"):
         for i, predictor in enumerate(self.predictors):
-            predictor.model = xgb.Booster()
+            predictor.model = predictor.type()
             predictor.model.load_model(f"data/models/{model_obj.id}/model-{i}.json")
     
     def train(self, configs, validation=True):
@@ -146,6 +175,8 @@ class XGBoostMultiPredictor(Predictor):
                 [features_dict[key] for key in task.features]
                 for features_dict in features
             ])
-            inputs = xgb.DMatrix(filtered_features)
-            result.append(predictor.model.predict(inputs, validate_features=False))
+            if task.type is TargetType.STR or self.task.binary:
+                result.append(predictor.model.predict_proba(filtered_features, validate_features=False))
+            else:
+                result.append(predictor.model.predict(filtered_features, validate_features=False))
         return result

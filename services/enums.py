@@ -17,3 +17,4 @@ class JobStatusEnum(Enum):
     IN_PROGRESS = 2
     FINISHED = 3
     ERROR = 4
+    

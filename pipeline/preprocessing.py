@@ -40,16 +40,17 @@ def get_labels(dataset: Dataset) -> List[List[str]]:
     return result
     
 
-def generator(dataset: Dataset, partition: str):
+def generator(dataset: Dataset, partition: str = None):
     root = f"data/datasets/{dataset.id}"
-    with open(f"{root}/{partition}.txt", "rt") as f:
-        ids = {int(line) for line in f.readlines()}
+    if partition:
+        with open(f"{root}/{partition}.txt", "rt") as f:
+            ids = {int(line) for line in f.readlines()}
     sep_file = os.path.exists(f"{root}/texts")
     with open(f"{root}/targets.csv", "rt") as f:
         reader = csv.reader(f)
         next(reader)
         for i, row in enumerate(reader):
-            if i not in ids:
+            if partition and i not in ids:
                 continue
             if sep_file:
                 with open(f"{root}/texts/{row[0]}", "rt") as text_file:
@@ -145,11 +146,13 @@ def remove_colinear(values: Dict[str, List[float]], labels: List[float]) -> List
                 mask[j] = False
             else:
                 mask[i] = False
-    return [
-        feature
-        for feature, m in zip(features, mask)
-        if mask
+    result = [
+        (feature, c)
+        for feature, m, c in zip(features, mask, correlations)
+        if m
     ]
+    result.sort(key=lambda x: x[1], reverse=True)
+    return [feature for feature, _ in result[:100]]
 
 
     

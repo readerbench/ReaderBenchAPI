@@ -40,7 +40,11 @@ class Job(models.Model):
                 "name": self.dataset.name,
             }
         if "model_id" in params:
-            params["model"] = Model.objects.get(id=params["model_id"]).type.label
+            try:
+                model = Model.objects.get(id=params["model_id"])
+                params["model"] = model.type.label
+            except:
+                params["model"] = None
             del params["model_id"]
         return {
             "id": self.id,

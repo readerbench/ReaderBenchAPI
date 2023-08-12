@@ -27,7 +27,9 @@ def hyperparameter_search(dataset: Dataset, job: Job, tasks: List[Task], feature
         for i, task in enumerate(tasks):
             targets[partition][i] = task.convert_targets(targets[partition][i])
     lang = Lang[dataset.lang.label]
-    for predictor_type in ModelTypeEnum:
+    # for predictor_type in ModelTypeEnum:
+    for predictor_type in [ModelTypeEnum.TRANSFORMER]:
+        print(tf.config.list_physical_devices("GPU"))
         predictor = predictor_type.predictor()(lang, tasks)
         predictor.load_data(texts, features, targets)
         best_result = predictor.search_config()

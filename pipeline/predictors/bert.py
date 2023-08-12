@@ -4,17 +4,37 @@ from typing import Dict, List
 
 import numpy as np
 import ray
+from sklearn.utils import compute_class_weight
 import tensorflow as tf
 from ray import tune
 from ray.air import Result
 from ray.tune.integration.keras import TuneReportCallback
 from rb import Lang
-from sklearn.metrics import f1_score, r2_score
+from sklearn.metrics import cohen_kappa_score, f1_score, r2_score, accuracy_score
 from transformers import AutoTokenizer, TFAutoModel
 
 from pipeline.predictors.predictor import Predictor
 from pipeline.task import TargetType, Task
 
+class WeightedBinaryCrossentropyLoss(tf.keras.losses.BinaryCrossentropy):
+    def __init__(self, class_weights):
+        super().__init__()
+        self.class_weights = tf.convert_to_tensor(class_weights,dtype=tf.float32)
+        
+    def call(self, y_true, y_pred):
+        loss = super().call(y_true, y_pred)
+        weight_mask = tf.gather(self.class_weights, y_true)
+        return loss * weight_mask
+    
+class WeightedSparseCrossentropyLoss(tf.keras.losses.SparseCategoricalCrossentropy):
+    def __init__(self, class_weights):
+        super().__init__()
+        self.class_weights = tf.convert_to_tensor(class_weights,dtype=tf.float32)
+        
+    def call(self, y_true, y_pred):
+        loss = super().call(y_true, y_pred)
+        weight_mask = tf.gather(self.class_weights, y_true)
+        return loss * weight_mask
 
 class BertPredictor(Predictor):
     def __init__(self, lang: Lang, tasks: List[Task]):
@@ -39,10 +59,11 @@ class BertPredictor(Predictor):
         config = {
             "model": tune.choice(models),
             "use_features": tune.choice([True, False]),
+            "features_proj": tune.choice([0, 32, 64, 128]),
             "pooler": tune.choice([True, False]),
             "hidden": tune.choice([32, 64, 128, 256]), 
             "lr": tune.qloguniform(5e-6, 1e-4, 5e-6),
-            "finetune_epochs": 5,
+            "finetune_epochs": 10,
 
         }
         return config
@@ -66,6 +87,8 @@ class BertPredictor(Predictor):
         for i, task in enumerate(self.tasks):
             if config["use_features"]:
                 features = tf.keras.layers.BatchNormalization()(inputs[2+i])
+                if config["features_proj"] > 0:
+                    features = tf.keras.layers.Dense(config["features_proj"], activation="tanh")(features)
                 emb = tf.keras.layers.Concatenate(axis=-1)([emb, features])
             hidden = tf.keras.layers.Dense(config["hidden"], activation="relu")(emb)
             if task.binary:
@@ -128,25 +151,23 @@ class BertPredictor(Predictor):
         optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=config["lr"])
         losses = []
         metrics = []
-        for task in self.tasks:
+        for i, task in enumerate(self.tasks):
             if task.binary:
-                losses.append("binary_crossentropy")
+                class_weights = compute_class_weight("balanced", classes=[0, 1], y=train_outputs[i])
+                losses.append(WeightedBinaryCrossentropyLoss(class_weights))
                 metrics.append(tf.keras.metrics.BinaryAccuracy(name=f"Accuracy_{task.name}"))
             elif task.type is TargetType.STR:
-                losses.append("sparse_categorical_crossentropy")
+                class_weights = compute_class_weight("balanced", classes=range(len(task.classes)), y=train_outputs[i])
+                losses.append(WeightedSparseCrossentropyLoss(class_weights))
                 metrics.append(tf.keras.metrics.SparseCategoricalAccuracy(name=f"Accuracy_{task.name}"))
             else:
                 losses.append("mse")
                 metrics.append(tf.keras.metrics.MeanAbsoluteError(name=f"MAE_{task.name}"))
         model.compile(optimizer=optimizer, loss=losses, metrics=metrics)
-        history = model.fit(train_inputs, train_outputs, batch_size=8, epochs=config["finetune_epochs"], validation_data=validation_data, 
+        model.fit(train_inputs, train_outputs, batch_size=8, epochs=config["finetune_epochs"], validation_data=validation_data, 
             verbose=2, callbacks=callbacks)
         if not validation:
-            metrics = {
-                metric[4:]: values[-1]
-                for metric, values in history.history.items()
-                if metric.startswith("val")
-            }
+            metrics = {}
             predictions = model.predict(test_inputs, batch_size=16)
             if len(self.tasks) == 1:
                 predictions = [predictions]
@@ -158,8 +179,14 @@ class BertPredictor(Predictor):
                     else:
                         average = "macro"
                     metrics[f"f1_score_{task.name}"] = f1_score(output, pred, average=average)
+                    metrics[f"accuracy_{task.name}"] = accuracy_score(output, pred)
                 else:
                     metrics[f"r2_score_{task.name}"] = r2_score(output, pred[:, 0])
+                    pred = [int(round(task.convert_prediction(float(p)), 0)) for p in pred]
+                    target = [int(round(task.convert_prediction(float(p)), 0)) for p in output]
+                    metrics[f"qwk_{task.name}"] = cohen_kappa_score(target, pred, weights="quadratic")
+                    
+                    
             self.model = model
             return metrics    
         
@@ -187,9 +214,9 @@ class BertPredictor(Predictor):
         for i, task in enumerate(self.tasks):
             if config["use_features"]:
                 filtered_features = np.array([
-                    [features_dict[key] for key in task.features]
+                    [features_dict[key] if features_dict[key] is not None else 0. for key in task.features]
                     for features_dict in features
-                ])
+                ], dtype=np.float32)
                 inputs.append(filtered_features)
         return self.model.predict(inputs, batch_size=12)   
         

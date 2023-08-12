@@ -45,6 +45,14 @@ class Task:
             else:
                 result.append((float(val) - self.min) / (self.max - self.min))
         return result
+    
+    def convert_prediction(self, value):
+        if self.binary:
+            return value
+        elif self.type is TargetType.STR:
+            return self.classes[value]
+        else:
+            return value * (self.max - self.min) + self.min
 
     def __repr__(self):
         if self.type is TargetType.STR:

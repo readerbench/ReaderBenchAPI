@@ -1,18 +1,15 @@
 import csv
 import json
 import os
+from shutil import rmtree
 
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
-from joblib import Parallel, delayed
-import numpy as np
-from rb import Lang
+
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from pipeline.enums import ModelTypeEnum
 from pipeline.models import Model
-from pipeline.parallel import build_features
 from pipeline.task import TargetType, Task
 from services.enums import JobStatusEnum, JobTypeEnum
 from services.models import Dataset, Job
@@ -31,7 +28,7 @@ def process_dataset(request, dataset_id):
         job.user_id = user_id
         job.type_id = JobTypeEnum.PIPELINE.value
         job.status_id = JobStatusEnum.PENDING.value
-        job.params = json.dumps({"dataset_id": dataset_id})
+        job.dataset = dataset
         job.save()
         result = {"id": job.id}
         return JsonResponse(result, safe=False)
@@ -44,11 +41,12 @@ def process_dataset(request, dataset_id):
 def get_models(request):
     try:
         user_id = request.user.id if request.user.id is not None else 1
-        models = Model.objects.filter(dataset__user_id=user_id).all()
+        models = Model.objects.filter(dataset__user_id=user_id).order_by("id").all()
         result = [
             {
                 "id": model.id,
                 "dataset": model.dataset.name,
+                "job_id": model.job_id,
                 "metrics": model.metrics,
                 "params": model.params,
                 "type": model.type.label
@@ -59,16 +57,38 @@ def get_models(request):
     except Exception as ex:
         print(ex)
         return JsonResponse({'status': 'ERROR', 'error_code': 'get_models_operation_failed', 'message': 'Error returning models'}, status=500)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def delete_model(request, model_id):
+    try:
+        user_id = request.user.id if request.user.id is not None else 1
+        model = get_object_or_404(Model, id=model_id)
+        if model.job.user_id != user_id:
+            return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Unauthorized access'}, status=403)
+        if os.path.exists(f"data/models/{model_id}"):
+            rmtree(f"data/models/{model_id}")
+        model.delete()
+        return JsonResponse({"success": True})
+    except Exception as ex:
+        print(ex)
+        return JsonResponse({'status': 'ERROR', 'error_code': 'delete_model_operation_failed', 'message': 'Error deleting model'}, status=500)
  
 
-# Create your views here.
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def model_predict(request, model_id):
     # try:
+    user_id = request.user.id if request.user.id is not None else 1
     model = get_object_or_404(Model, id=model_id)
+    if model.job.user_id != user_id:
+        return JsonResponse({'status': 'ERROR', 'error_code': 'get_result_operation_failed', 'message': 'Model not owned be user'}, status=403)
     csvfile = request.FILES.get("csvfile")
     if csvfile is None:
+        from rb.core.lang import Lang
+        from pipeline.enums import ModelTypeEnum
+        from pipeline.parallel import build_features
+        
         dataset = model.dataset
         tasks = []
         for i in range(dataset.num_cols):
@@ -139,3 +159,48 @@ def get_result(request, job_id):
         print(ex)
         return JsonResponse({'status': 'ERROR', 'error_code': 'get_result_operation_failed', 'message': 'Error returning results'}, status=500)
 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def model_feature_importances(request, model_id):
+    try:
+        user_id = request.user.id if request.user.id is not None else 1
+        model = get_object_or_404(Model, id=model_id)
+        if model.job.user_id != user_id:
+            return JsonResponse({'status': 'ERROR', 'error_code': 'get_result_operation_failed', 'message': 'Model not owned be user'}, status=403)
+        from rb.core.lang import Lang
+        from pipeline.enums import ModelTypeEnum
+        if model.type_id != ModelTypeEnum.XGBOOST.value:
+            return JsonResponse({'status': 'ERROR', 'error_code': 'get_result_operation_failed', 'message': 'Feature importance can only be computed on XGBoost models'}, status=403)
+        import xlsxwriter
+        import io
+        buffer = io.BytesIO()
+        with xlsxwriter.Workbook(buffer) as workbook:
+            worksheet = workbook.add_worksheet()       
+            merge_format = workbook.add_format({'align': 'center'})
+            dataset = model.dataset
+            tasks = []
+            for i in range(dataset.num_cols):
+                with open(f"data/datasets/{dataset.id}/task_{i}.json", "rt") as f:
+                    obj = json.load(f)
+                    task = Task(obj=obj)
+                    tasks.append(task)
+            lang = Lang[dataset.lang.label]
+            multipredictor = ModelTypeEnum(model.type_id).predictor()(lang, tasks)
+            multipredictor.load(model)
+            for i, predictor in enumerate(multipredictor.predictors):
+                worksheet.merge_range(0, i * 2, 0, i * 2 + 1, predictor.task.name, merge_format)
+                worksheet.write_string(1, i * 2, "Feature")
+                worksheet.write_string(1, i * 2 + 1, "Importance")
+                importances = sorted(zip(predictor.task.features, predictor.model.feature_importances_), key=lambda x: x[1], reverse=True)
+                for j, entry in enumerate(importances):
+                    worksheet.write_string(j+2, i * 2, entry[0])
+                    worksheet.write_number(j+2, i * 2 + 1, entry[1])
+        buffer.seek(0)
+        data = buffer.getvalue()
+        response = HttpResponse(data, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="Feature importance.xlsx"'
+        response['Access-Control-Expose-Headers'] = '*'
+        return response
+    except Exception as ex:
+        print(ex)
+        return JsonResponse({'status': 'ERROR', 'error_code': 'get_result_operation_failed', 'message': 'Error returning results'}, status=500)

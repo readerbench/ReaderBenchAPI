@@ -13,7 +13,7 @@ from rb.similarity.vector_model_factory import (VectorModelType,
 from rb.similarity.wordnet import WordNet
 from rb.utils.rblogger import Logger
 
-def build_features(text: str, lang: Lang) -> Dict[str, float]:
+def build_features(text: str, lang: Lang, all_elements=False) -> Dict[str, float]:
     Logger.get_logger().setLevel(logging.WARNING)
     tf.config.run_functions_eagerly(True)
     tf.config.set_visible_devices([], 'GPU')
@@ -26,6 +26,25 @@ def build_features(text: str, lang: Lang) -> Dict[str, float]:
         str(index): float(value) if value is not None else None
         for index, value in doc.indices.items()
     }
+    if all_elements:
+        elements = [{"id": "Doc", "text": doc.text}]
+        indices = [result]
+        for i, block in enumerate(doc.get_blocks()):
+            elements.append({"id": f"Paragraph_{i+1}", text: block.text})
+            indices.append({
+                str(index): float(value) if value is not None else None
+                for index, value in block.indices.items()
+            })
+            for j, sentence in enumerate(block.get_sentences()):
+                elements.append({"id": f"Sentence_{i+1}.{j+1}", text: sentence.text})
+                indices.append({
+                    str(index): float(value) if value is not None else None
+                    for index, value in sentence.indices.items()
+                })
+        result = {
+            "elements": elements,
+            "indices": indices,
+        }
     del cna_graph
     del doc
     if WordNet._instance is not None:

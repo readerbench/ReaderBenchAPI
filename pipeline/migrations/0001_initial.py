@@ -3,16 +3,18 @@
 from django.db import migrations, models
 import django.db.models.deletion
 
-from pipeline.enums import ModelTypeEnum
-from pipeline.models import ModelType
+
 
 def init_model_types(apps, schema_editor):
+    from pipeline.enums import ModelTypeEnum
+    from pipeline.models import ModelType
     for mt in ModelTypeEnum:
         obj = ModelType()
         obj.label = mt.name
         obj.save()
     
 def delete_model_types(apps, schema_editor):
+    from pipeline.models import ModelType
     ModelType.objects.raw(f"truncate table {ModelType._meta.db_table} cascade")
     
 class Migration(migrations.Migration):

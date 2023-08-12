@@ -47,8 +47,8 @@ class Predictor():
         return "val_loss"
 
     def search_config(self) -> Result:
-        reporter = tune.CLIReporter(max_progress_rows=10, max_report_frequency=60)
         metric = self.get_metric()
+        reporter = tune.CLIReporter(max_progress_rows=10, max_report_frequency=60, metric=metric, metric_columns=[metric])
         optuna_search = OptunaSearch(
             metric=metric,
             mode="min")
