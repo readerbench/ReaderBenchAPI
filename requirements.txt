@@ -3,6 +3,7 @@ clean-text
 Django
 django-cors-headers
 django-oauth-toolkit
+django-braces
 djangorestframework
 optuna
 psycopg2
