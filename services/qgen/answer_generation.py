@@ -32,7 +32,6 @@ def normalize(text: str) -> str:
     return text
 
 def oracle_gen(text: str) -> List[Dict]:
-    # tf.config.set_visible_devices([], 'GPU')
     tokenizer = AutoTokenizer.from_pretrained('readerbench/AG-Flan-T5-large')
     model = TFT5ForConditionalGeneration.from_pretrained('readerbench/AG-Flan-T5-large')
     prompt = f"Select an answer from the context that can be used to generate a question:\nContext: {text}"

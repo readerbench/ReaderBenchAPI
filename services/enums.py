@@ -11,6 +11,7 @@ class JobTypeEnum(Enum):
     DIACRITICS = 7
     ANSWER_GEN = 8
     TEST_GEN = 9
+    KEYWORDS = 10
 
 class JobStatusEnum(Enum):
     PENDING = 1

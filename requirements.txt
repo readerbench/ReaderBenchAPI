@@ -5,6 +5,7 @@ django-cors-headers
 django-oauth-toolkit
 django-braces
 djangorestframework
+keybert
 optuna
 psycopg2
 pyarrow

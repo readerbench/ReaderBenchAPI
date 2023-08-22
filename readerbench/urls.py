@@ -21,7 +21,7 @@ from readerbench.view import UserRegister
 from rest_framework import generics, permissions, serializers
 from pipeline.views import delete_model, get_models, get_result, model_feature_importances, model_predict, process_dataset
 
-from services.views import add_dataset, delete_dataset, delete_job, generate_test, get_dataset, get_datasets, get_job, get_jobs, get_languages, get_potential_answers, process_cscl, restore_diacritics
+from services.views import add_dataset, add_keywords_job, add_offensive_job, add_sentiment_job, delete_dataset, delete_job, generate_test, get_dataset, get_datasets, get_job, get_jobs, get_languages, get_potential_answers, process_cscl, restore_diacritics
 
 # Serializers
 class UserSerializer(serializers.ModelSerializer):
@@ -71,4 +71,7 @@ urlpatterns = [
     path('pipeline/models/<int:model_id>/features', model_feature_importances),
     path('pipeline/models', get_models),
     path('services/diacritics', restore_diacritics),
+    path('services/keywords', add_keywords_job),
+    path('services/sentiment', add_sentiment_job),
+    path('services/offensive', add_offensive_job),
 ]

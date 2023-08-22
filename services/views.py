@@ -298,7 +298,7 @@ def get_jobs(request):
     user_id = request.user.id if request.user.id is not None else 1
     jobs = [
         job.to_dict()
-        for job in Job.objects.filter(user_id=user_id).all()
+        for job in Job.objects.filter(user_id=user_id).order_by("-id").all()
     ]
     return JsonResponse({"jobs": jobs}, safe=False)
     # except Exception as ex:
@@ -381,3 +381,49 @@ def restore_diacritics(request):
         return JsonResponse({"id": job.id})
     except Exception as ex:
         return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error restoring diacritics'}, status=500)
+    
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def add_sentiment_job(request):
+    try:
+        text = request.data["text"]
+        job = Job()
+        job.type_id = JobTypeEnum.SENTIMENT.value
+        job.status_id = JobStatusEnum.PENDING.value
+        job.user_id = request.user.id if request.user.id is not None else 1
+        job.params = json.dumps({"text": text})
+        job.save()
+        return JsonResponse({"id": job.id})
+    except Exception as ex:
+        return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error adding sentiment job'}, status=500)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def add_keywords_job(request):
+    try:
+        text = request.data["text"]
+        lang = int(request.data["lang"])
+        job = Job()
+        job.type_id = JobTypeEnum.KEYWORDS.value
+        job.status_id = JobStatusEnum.PENDING.value
+        job.user_id = request.user.id if request.user.id is not None else 1
+        job.params = json.dumps({"text": text, "lang": lang})
+        job.save()
+        return JsonResponse({"id": job.id})
+    except Exception as ex:
+        return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error adding keywords job'}, status=500)
+    
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def add_offensive_job(request):
+    try:
+        text = request.data["text"]
+        job = Job()
+        job.type_id = JobTypeEnum.OFFENSIVE.value
+        job.status_id = JobStatusEnum.PENDING.value
+        job.user_id = request.user.id if request.user.id is not None else 1
+        job.params = json.dumps({"text": text})
+        job.save()
+        return JsonResponse({"id": job.id})
+    except Exception as ex:
+        return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error adding offensive job'}, status=500)
