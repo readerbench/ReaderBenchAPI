@@ -2,6 +2,7 @@ import csv
 import json
 import os
 from shutil import rmtree
+import zipfile
 
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
@@ -9,13 +10,116 @@ from django.shortcuts import get_object_or_404, render
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from pipeline.models import Model
+from pipeline.models import Dataset, Model
 from pipeline.task import TargetType, Task
 from services.enums import JobStatusEnum, JobTypeEnum
-from services.models import Dataset, Job
+from services.models import Job, Language
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def add_dataset(request):
+    try:
+        data = request.FILES.get("zipfile")
+        targets = request.FILES.get("csvfile")
+        lang_id = request.data["lang"]
+        lang = get_object_or_404(Language, pk=lang_id)
+        name = request.POST["name"]
+        task = request.POST["task"]
+        dataset = Dataset()
+        dataset.name = name
+        dataset.task = task
+        dataset.user_id = 1
+        dataset.lang = lang
+        dataset.save()
+        os.makedirs(f"data/datasets/{dataset.pk}")
+        with open(f"data/datasets/{dataset.pk}/targets.csv", "wb") as f:
+            for chunk in targets.chunks():
+                f.write(chunk)
+        with open(f"data/datasets/{dataset.pk}/targets.csv", "rt") as f:
+            reader = csv.reader(f)
+            header = next(reader)
+            dataset.num_cols = len(header) - 1
+            dataset.num_rows = sum(1 for row in reader)
+            dataset.save()
+        if data is not None:
+            os.makedirs(f"data/datasets/{dataset.pk}/texts")
+            with zipfile.ZipFile(data) as f:
+                for zip_info in f.infolist():
+                    if zip_info.filename[-1] == '/':
+                        continue
+                    zip_info.filename = os.path.basename(zip_info.filename)
+                    f.extract(zip_info, f"data/datasets/{dataset.pk}/texts")
+        return JsonResponse({"id": dataset.pk})
+    except Exception as ex:
+        print(ex)
+        if 'dataset' in locals() and dataset.pk is not None:
+            rmtree(f"data/datasets/{dataset.pk}")
+            dataset.delete()
+        return JsonResponse({'status': 'ERROR', 'error_code': 'add_operation_failed', 'message': 'The dataset could not be saved'}, status=500)
+ 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def get_datasets(request):
+    try:
+        user_id = request.user.id if request.user.id is not None else 1
+        datasets = Dataset.objects.filter(user_id=user_id).all()
+        datasets = [
+            {
+                "id": dataset.id,
+                "name": dataset.name,
+                "language": dataset.lang_id,
+                "number_of_tasks": dataset.num_cols,
+                "number_of_entries": dataset.num_rows,
+            }
+            for dataset in datasets
+        ]
+        return JsonResponse({"datasets": datasets}, safe=False)
+    except Exception as ex:
+        return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error while retrieving datasets'}, status=500)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def get_dataset(request, dataset_id):
+    try:
+        user_id = request.user.id if request.user.id is not None else 1
+        dataset = get_object_or_404(Dataset, id=dataset_id)
+        if dataset.user_id != user_id:
+            return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Unauthorized access'}, status=403)
+        job = Job.objects.filter(type_id=JobTypeEnum.PIPELINE.value, dataset_id=dataset_id).order_by("-id").first()
+        processed = 0 if job is None else job.status_id
+        job = Job.objects.filter(type_id=JobTypeEnum.INDICES.value, dataset_id=dataset_id).order_by("-id").first()
+        indices = 0 if job is None else job.status_id
+        result = {
+            "id": dataset.id,
+            "name": dataset.name,
+            "language": dataset.lang_id,
+            "number_of_tasks": dataset.num_cols,
+            "number_of_entries": dataset.num_rows,
+            "processed": processed,
+            "indices": indices,
+        }
+        return JsonResponse(result, safe=False)
+    except Exception as ex:
+        return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error while retrieving datasets'}, status=500)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def delete_dataset(request, dataset_id):
+    try:
+        user_id = request.user.id if request.user.id is not None else 1
+        dataset = get_object_or_404(Dataset, id=dataset_id)
+        if dataset.user_id != user_id:
+            return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Unauthorized access'}, status=403)
+        for model in Model.objects.filter(dataset_id=dataset_id).all():
+            rmtree(f"data/models/{model.id}")
+            model.delete()
+        rmtree(f"data/datasets/{dataset_id}")
+        dataset.delete()    
+        return JsonResponse({"success": True}, safe=False)
+    except Exception as ex:
+        return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error deleting dataset'}, status=500)
 
 
-# Create your views here.
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def process_dataset(request, dataset_id):
@@ -27,6 +131,26 @@ def process_dataset(request, dataset_id):
         job = Job()
         job.user_id = user_id
         job.type_id = JobTypeEnum.PIPELINE.value
+        job.status_id = JobStatusEnum.PENDING.value
+        job.dataset = dataset
+        job.save()
+        result = {"id": job.id}
+        return JsonResponse(result, safe=False)
+    except Exception as ex:
+        print(ex)
+        return JsonResponse({'status': 'ERROR', 'error_code': 'add_job_operation_failed', 'message': 'Error processing dataset'}, status=500)
+    
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def add_indices_job(request, dataset_id):
+    try:
+        dataset = get_object_or_404(Dataset, id=dataset_id)
+        user_id = request.user.id if request.user.id is not None else 1
+        if dataset.user_id != user_id:
+            return JsonResponse({'status': 'ERROR', 'error_code': 'add_job_operation_failed', 'message': 'Forbidden'}, status=403)
+        job = Job()
+        job.user_id = user_id
+        job.type_id = JobTypeEnum.INDICES.value
         job.status_id = JobStatusEnum.PENDING.value
         job.dataset = dataset
         job.save()
@@ -78,59 +202,59 @@ def delete_model(request, model_id):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def model_predict(request, model_id):
-    # try:
-    user_id = request.user.id if request.user.id is not None else 1
-    model = get_object_or_404(Model, id=model_id)
-    if model.job.user_id != user_id:
-        return JsonResponse({'status': 'ERROR', 'error_code': 'get_result_operation_failed', 'message': 'Model not owned be user'}, status=403)
-    csvfile = request.FILES.get("csvfile")
-    if csvfile is None:
-        from rb.core.lang import Lang
-        from pipeline.enums import ModelTypeEnum
-        from pipeline.parallel import build_features
-        
-        dataset = model.dataset
-        tasks = []
-        for i in range(dataset.num_cols):
-            with open(f"data/datasets/{dataset.id}/task_{i}.json", "rt") as f:
-                obj = json.load(f)
-                task = Task(obj=obj)
-                tasks.append(task)
-        lang = Lang[dataset.lang.label]
-        predictor = ModelTypeEnum(model.type_id).predictor()(lang, tasks)
-        text = request.data["text"]
-        all_features = [build_features(text, lang)]
-        texts = [text]
-        predictions = predictor.predict(model, texts, all_features)
-        result = []
-        for task, pred in zip(tasks, predictions):
-            if task.type is TargetType.STR:
-                output = json.dumps({c: round(float(p), 2) for c, p in zip(task.classes, pred[0])})
-            else:
-                output = round(float(pred), 2)
-            result.append({
-                "task": task.name,
-                "result": output,
-            })
-        return JsonResponse(result, safe=False)
-    else:
-        job = Job()
-        job.user_id = request.user.id if request.user.id is not None else 1
-        job.type_id = JobTypeEnum.PREDICT.value
-        job.params = "{}"
-        job.status_id = JobStatusEnum.PENDING.value
-        job.save()
-        os.makedirs(f"data/jobs/{job.id}")
-        with open(f"data/jobs/{job.id}/input.csv", "wb") as f:
-            for chunk in csvfile.chunks():
-                f.write(chunk)
-        job.params = json.dumps({"model_id": model_id})
-        job.save()
-        result = {"id": job.id}
-        return JsonResponse(result, safe=False)
-    # except Exception as ex:
-    #     print(ex)
-    #     return JsonResponse({'status': 'ERROR', 'error_code': 'predict_operation_failed', 'message': 'Prediction error'}, status=500)
+    try:
+        user_id = request.user.id if request.user.id is not None else 1
+        model = get_object_or_404(Model, id=model_id)
+        if model.job.user_id != user_id:
+            return JsonResponse({'status': 'ERROR', 'error_code': 'get_result_operation_failed', 'message': 'Model not owned be user'}, status=403)
+        csvfile = request.FILES.get("csvfile")
+        if csvfile is None:
+            from rb.core.lang import Lang
+            from pipeline.enums import ModelTypeEnum
+            from pipeline.parallel import build_features
+            
+            dataset = model.dataset
+            tasks = []
+            for i in range(dataset.num_cols):
+                with open(f"data/datasets/{dataset.id}/task_{i}.json", "rt") as f:
+                    obj = json.load(f)
+                    task = Task(obj=obj)
+                    tasks.append(task)
+            lang = Lang[dataset.lang.label]
+            predictor = ModelTypeEnum(model.type_id).predictor()(lang, tasks)
+            text = request.data["text"]
+            all_features = [build_features(text, lang)]
+            texts = [text]
+            predictions = predictor.predict(model, texts, all_features)
+            result = []
+            for task, pred in zip(tasks, predictions):
+                if task.type is TargetType.STR:
+                    output = json.dumps({c: round(float(p), 2) for c, p in zip(task.classes, pred[0])})
+                else:
+                    output = round(float(pred), 2)
+                result.append({
+                    "task": task.name,
+                    "result": output,
+                })
+            return JsonResponse(result, safe=False)
+        else:
+            job = Job()
+            job.user_id = request.user.id if request.user.id is not None else 1
+            job.type_id = JobTypeEnum.PREDICT.value
+            job.params = "{}"
+            job.status_id = JobStatusEnum.PENDING.value
+            job.save()
+            os.makedirs(f"data/jobs/{job.id}")
+            with open(f"data/jobs/{job.id}/input.csv", "wb") as f:
+                for chunk in csvfile.chunks():
+                    f.write(chunk)
+            job.params = json.dumps({"model_id": model_id})
+            job.save()
+            result = {"id": job.id}
+            return JsonResponse(result, safe=False)
+    except Exception as ex:
+        print(ex)
+        return JsonResponse({'status': 'ERROR', 'error_code': 'predict_operation_failed', 'message': 'Prediction error'}, status=500)
  
 
 @api_view(['POST'])

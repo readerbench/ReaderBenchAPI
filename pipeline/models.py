@@ -1,8 +1,17 @@
+from django.conf import settings
 from django.db import models
 
-from services.models import Dataset, Job
+from services.models import Job, Language
 
-# Create your models here.
+
+class Dataset(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    name = models.CharField(max_length=50)
+    task = models.CharField(max_length=50)
+    lang = models.ForeignKey(Language, on_delete=models.CASCADE)
+    num_rows = models.IntegerField(default=0)
+    num_cols = models.IntegerField(default=0)
+
 class ModelType(models.Model):
     label = models.CharField(max_length=20)
 

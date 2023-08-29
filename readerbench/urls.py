@@ -17,11 +17,18 @@ from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.urls import include, path
 from oauth2_provider.contrib.rest_framework import TokenHasReadWriteScope
-from readerbench.view import UserRegister
 from rest_framework import generics, permissions, serializers
-from pipeline.views import delete_model, get_models, get_result, model_feature_importances, model_predict, process_dataset
 
-from services.views import add_dataset, add_keywords_job, add_offensive_job, add_sentiment_job, delete_dataset, delete_job, generate_test, get_dataset, get_datasets, get_job, get_jobs, get_languages, get_potential_answers, process_cscl, restore_diacritics
+from pipeline.views import (add_dataset, add_indices_job, delete_dataset, delete_model, get_dataset, get_datasets, get_models, get_result,
+                            model_feature_importances, model_predict,
+                            process_dataset)
+from readerbench.view import UserRegister
+from services.views import (add_keywords_job, add_offensive_job,
+                            add_sentiment_job, delete_job, generate_test,
+                            get_job, get_jobs, get_languages,
+                            get_potential_answers, process_cscl,
+                            restore_diacritics)
+
 
 # Serializers
 class UserSerializer(serializers.ModelSerializer):
@@ -42,17 +49,6 @@ urlpatterns = [
     path('oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     path('users/me', CurrentUser.as_view()),
     path('users/register', UserRegister.as_view()),
-    # path('services/indices', get_indices),
-    # path('services/ro-correct-text', ro_correct_text),
-    # path('services/feedback', feedbackPost),
-    # path('services/fluctuations', fluctuations),
-    # path('services/keywords', keywords),
-    # path('services/keywords-heatmap', keywordsHeatmap),
-    # path('services/similar-concepts', similar_concepts),
-    # path('services/hypernyms', get_hypernyms),
-    # path('services/syllables', syllables),
-    # path('services/diacritics', restore_diacritics),
-    # path('services/aes', clasify_aes),
     path('services/cscl', process_cscl),
     path('services/datasets/add', add_dataset),
     path('services/datasets', get_datasets),
@@ -64,6 +60,7 @@ urlpatterns = [
     path('services/jobs/<int:job_id>/result', get_result),
     path('services/jobs/<int:job_id>/delete', delete_job),
     path('services/datasets/<int:dataset_id>/process', process_dataset),
+    path('services/datasets/<int:dataset_id>/indices', add_indices_job),
     path('services/qgen/answers', get_potential_answers),
     path('services/qgen/test', generate_test),
     path('pipeline/models/<int:model_id>/predict', model_predict),

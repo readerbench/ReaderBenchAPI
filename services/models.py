@@ -6,14 +6,6 @@ from django.conf import settings
 class Language(models.Model):
     label = models.CharField(max_length=20)
     
-class Dataset(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    name = models.CharField(max_length=50)
-    task = models.CharField(max_length=50)
-    lang = models.ForeignKey(Language, on_delete=models.CASCADE)
-    num_rows = models.IntegerField(default=0)
-    num_cols = models.IntegerField(default=0)
-
 class JobType(models.Model):
     label = models.CharField(max_length=20)
 
@@ -24,7 +16,7 @@ class Job(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     type = models.ForeignKey(JobType, on_delete=models.CASCADE)
     status = models.ForeignKey(JobStatus, on_delete=models.CASCADE)
-    dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, null=True)
+    dataset = models.ForeignKey("pipeline.Dataset", on_delete=models.CASCADE, null=True)
     submit_time = models.DateTimeField(auto_now_add=True)
     elapsed_seconds = models.IntegerField(default=0)
     params = models.TextField(default="{}")

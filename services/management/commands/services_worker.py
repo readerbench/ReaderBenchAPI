@@ -57,7 +57,7 @@ def extract_keywords(text, lang):
     hf_model = pipeline("feature-extraction", model=model)
     kw_model = KeyBERT(model=hf_model)
     keywords = kw_model.extract_keywords(text, keyphrase_ngram_range=(1, 3), use_maxsum=True, nr_candidates=20, top_n=5)
-    return [keyword for keyword, score in keywords if score > 0.5]
+    return [keyword for keyword, score in keywords if score > 0.4]
 
 def job_wrapper(function, queue, **kwargs):
     import torch

@@ -8,9 +8,8 @@ from collections import Counter
 from typing import Dict, List
 
 from scipy.stats import f_oneway, pearsonr
+from pipeline.models import Dataset
 from pipeline.task import TargetType, Task, is_double, is_int
-
-from services.models import Dataset, Job
 
 
 def split(dataset: Dataset):

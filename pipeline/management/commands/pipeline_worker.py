@@ -15,7 +15,7 @@ from pipeline.preprocessing import (filter_rare, generator, get_labels,
 from pipeline.task import TargetType, Task
 
 from services.enums import JobStatusEnum, JobTypeEnum
-from services.models import Dataset, Job, Language
+from services.models import Job
 
 
 def process(job: Job):
@@ -38,17 +38,17 @@ def process(job: Job):
             task_names = header[1:]
         if not os.path.exists(f"{root}/train.txt"):
             split(dataset)
-        # for partition in ["train", "val", "test"]:
-        #     with Parallel(n_jobs=16, prefer="processes", verbose=100) as parallel:
-        #         features = parallel( \
-        #             delayed(build_features)(row[0], lang) \
-        #             for row in generator(dataset, partition))
-        #     with open(f"{root}/{partition}_features.csv", "wt") as f:
-        #         writer = csv.writer(f)
-        #         keys = list(sorted(features[0].keys()))
-        #         writer.writerow(keys)
-        #         for entry in features:
-        #             writer.writerow([entry[f] for f in keys])
+        for partition in ["train", "val", "test"]:
+            with Parallel(n_jobs=16, prefer="processes", verbose=100) as parallel:
+                features = parallel( \
+                    delayed(build_features)(row[0], lang) \
+                    for row in generator(dataset, partition))
+            with open(f"{root}/{partition}_features.csv", "wt") as f:
+                writer = csv.writer(f)
+                keys = list(sorted(features[0].keys()))
+                writer.writerow(keys)
+                for entry in features:
+                    writer.writerow([entry[f] for f in keys])
         features = filter_rare(dataset)
         all_labels = get_labels(dataset)
         tasks = get_tasks(all_labels)
@@ -58,16 +58,16 @@ def process(job: Job):
         for row in generator(dataset, "train"):
             for i, value in enumerate(row[1:]):
                 labels[i].append(value)
-        # for task, targets in zip(tasks, labels):
-        #     task.features = remove_colinear(features["train"], task.convert_targets(targets))
-        # for i, task in enumerate(tasks):
-        #     task.save(f"data/datasets/{dataset.id}/task_{i}.json")
-        tasks = []
-        for i in range(len(task_names)):
-            with open(f"data/datasets/{dataset.id}/task_{i}.json", "rt") as f:
-                obj = json.load(f)
-                task = Task(obj=obj)
-                tasks.append(task)
+        for task, targets in zip(tasks, labels):
+            task.features = remove_colinear(features["train"], task.convert_targets(targets))
+        for i, task in enumerate(tasks):
+            task.save(f"data/datasets/{dataset.id}/task_{i}.json")
+        # tasks = []
+        # for i in range(len(task_names)):
+        #     with open(f"data/datasets/{dataset.id}/task_{i}.json", "rt") as f:
+        #         obj = json.load(f)
+        #         task = Task(obj=obj)
+        #         tasks.append(task)
         hyperparameter_search(dataset, job, tasks, features)
         job.status_id = JobStatusEnum.FINISHED.value
         t2 = datetime.now()
