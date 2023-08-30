@@ -16,7 +16,11 @@ def get_sentiment(text):
     model = TFAutoModelForSequenceClassification.from_pretrained("readerbench/ro-sentiment", from_pt=True)
     inputs = tokenizer(text, return_tensors="tf")
     logits = model(**inputs).logits
-    return tf.nn.softmax(logits)[0].numpy().tolist()
+    scores = tf.nn.softmax(logits)[0].numpy().tolist()
+    return {
+        "Negative": scores[0],
+        "Positive": scores[1]
+    }
 
 def offensive_classification(text):
     import tensorflow as tf
@@ -25,7 +29,13 @@ def offensive_classification(text):
     model = TFAutoModelForSequenceClassification.from_pretrained("readerbench/ro-offense", from_pt=True)
     inputs = tokenizer(text, return_tensors="tf")
     logits = model(**inputs).logits
-    return tf.nn.softmax(logits)[0].numpy().tolist()
+    scores = tf.nn.softmax(logits)[0].numpy().tolist()
+    return {
+        "None": scores[0],
+        "Profanity": scores[1],
+        "Insults": scores[2],
+        "Abuse": scores[3]
+    }
 
 def generate_answers_wrapper(text):
     from services.qgen.answer_generation import generate_answers
