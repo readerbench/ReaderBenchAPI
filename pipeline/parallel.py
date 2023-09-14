@@ -30,13 +30,13 @@ def build_features(text: str, lang: Lang, all_elements=False) -> Dict[str, float
         elements = [{"id": "Doc", "text": doc.text}]
         indices = [result]
         for i, block in enumerate(doc.get_blocks()):
-            elements.append({"id": f"Paragraph_{i+1}", text: block.text})
+            elements.append({"id": f"Paragraph_{i+1}", "text": block.text})
             indices.append({
                 str(index): float(value) if value is not None else None
                 for index, value in block.indices.items()
             })
             for j, sentence in enumerate(block.get_sentences()):
-                elements.append({"id": f"Sentence_{i+1}.{j+1}", text: sentence.text})
+                elements.append({"id": f"Sentence_{i+1}.{j+1}", "text": sentence.text})
                 indices.append({
                     str(index): float(value) if value is not None else None
                     for index, value in sentence.indices.items()

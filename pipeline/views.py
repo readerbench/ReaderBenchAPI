@@ -1,7 +1,9 @@
 import csv
+import io
 import json
 import os
 from shutil import rmtree
+import xlsxwriter
 import zipfile
 
 from django.http import HttpResponse, JsonResponse
@@ -15,6 +17,8 @@ from pipeline.task import TargetType, Task
 from services.enums import JobStatusEnum, JobTypeEnum
 from services.models import Job, Language
 
+
+        
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def add_dataset(request):
@@ -85,10 +89,10 @@ def get_dataset(request, dataset_id):
         dataset = get_object_or_404(Dataset, id=dataset_id)
         if dataset.user_id != user_id:
             return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Unauthorized access'}, status=403)
-        job = Job.objects.filter(type_id=JobTypeEnum.PIPELINE.value, dataset_id=dataset_id).order_by("-id").first()
-        processed = 0 if job is None else job.status_id
-        job = Job.objects.filter(type_id=JobTypeEnum.INDICES.value, dataset_id=dataset_id).order_by("-id").first()
-        indices = 0 if job is None else job.status_id
+        pipeline_job = Job.objects.filter(type_id=JobTypeEnum.PIPELINE.value, dataset_id=dataset_id).order_by("-id").first()
+        processed = 0 if pipeline_job is None else pipeline_job.status_id
+        indices_job = Job.objects.filter(type_id=JobTypeEnum.INDICES.value, dataset_id=dataset_id).order_by("-id").first()
+        indices = 0 if indices_job is None else indices_job.status_id
         result = {
             "id": dataset.id,
             "name": dataset.name,
@@ -96,6 +100,8 @@ def get_dataset(request, dataset_id):
             "number_of_tasks": dataset.num_cols,
             "number_of_entries": dataset.num_rows,
             "processed": processed,
+            "pipeline_job_id": pipeline_job.id if pipeline_job is not None else None,
+            "indices_job_id": indices_job.id if indices_job is not None else None,
             "indices": indices,
         }
         return JsonResponse(result, safe=False)
@@ -278,6 +284,37 @@ def get_result(request, job_id):
                 for row in reader:
                     writer.writerow(row)
             return response
+        elif job.type_id == JobTypeEnum.INDICES.value:
+            response = HttpResponse(
+                content_type="application/x-zip-compressed",
+                headers={"Content-Disposition": 'attachment; filename="indices.zip"'},
+            )
+            docs = {}
+            for filename in os.listdir(f"data/datasets/{job.dataset_id}/indices"):
+                if not filename.endswith(".json"):
+                    continue
+                with open(f"data/datasets/{job.dataset_id}/indices/{filename}", "rt") as f:
+                    docs[int(filename.split(".json")[0])] = json.load(f)
+            docs = [docs[key] for key in sorted(docs.keys())]
+            with zipfile.ZipFile(response, "w") as zip:
+                buffer = io.BytesIO()
+                with xlsxwriter.Workbook(buffer) as workbook:
+                    worksheet = workbook.add_worksheet()       
+                    worksheet.write_string(0, 0, "Index")
+                    worksheet.write_string(0, 1, "Text")
+                    features = list(sorted(key for key in docs[0]["indices"][0].keys()))
+                    for i, feature in enumerate(features):
+                        worksheet.write_string(0, i+2, feature)
+                    for i, doc in enumerate(docs):
+                        worksheet.write_number(i+1, 0, i)
+                        worksheet.write_string(i+1, 1, doc["elements"][0]["text"])
+                        for j, feature in enumerate(features):
+                            if doc["indices"][0][feature] is not None:
+                                worksheet.write_number(i+1, j+2, doc["indices"][0][feature])
+                buffer.seek(0)
+                data = buffer.getvalue()
+                zip.writestr("doc_indices.xlsx", data)
+            return response  
         return JsonResponse({'status': 'ERROR', 'error_code': 'get_result_operation_failed', 'message': 'Error returning results'}, status=500)
     except Exception as ex:
         print(ex)
@@ -295,8 +332,6 @@ def model_feature_importances(request, model_id):
         from pipeline.enums import ModelTypeEnum
         if model.type_id != ModelTypeEnum.XGBOOST.value:
             return JsonResponse({'status': 'ERROR', 'error_code': 'get_result_operation_failed', 'message': 'Feature importance can only be computed on XGBoost models'}, status=403)
-        import xlsxwriter
-        import io
         buffer = io.BytesIO()
         with xlsxwriter.Workbook(buffer) as workbook:
             worksheet = workbook.add_worksheet()       

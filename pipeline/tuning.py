@@ -6,11 +6,11 @@ from typing import Dict, List
 import numpy as np
 import tensorflow as tf
 from pipeline.enums import ModelTypeEnum
-from pipeline.models import Model
+from pipeline.models import Dataset, Model
 from pipeline.preprocessing import generator
 from pipeline.task import Task
 from rb import Lang
-from services.models import Dataset, Job
+from services.models import Job
 
 
 
