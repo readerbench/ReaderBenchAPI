@@ -13,6 +13,8 @@ from rb.utils.utils import str_to_lang
 
 
 def process_conv(file, lang):
+    import tensorflow as tf
+    tf.config.set_visible_devices([], 'GPU')
     conv_dict = load_from_xml(file)
     
     lang = str_to_lang(lang)

@@ -233,10 +233,11 @@ def generate_all_distractors(context, question, answer, answer_containing_senten
 
     distractors_losses = zip(distractors_to_keep, qa_losses)
     distractors_losses = sorted(distractors_losses, key=lambda x: x[1])
-
+    if not distractors_losses:
+        return []
     final_distractors = [distractors_losses[0]]
     i = 1
-    while len(final_distractors) < num_distractors or i == len(distractors_losses):
+    while len(final_distractors) < num_distractors and i < len(distractors_losses):
         first_sentences = [answer_containing_sentence.replace(answer, d[0]) for d in final_distractors]
         second_sentences = [answer_containing_sentence.replace(answer, distractors_losses[i][0]) for _ in final_distractors]
         nli_labels = get_entailment(first_sentences, second_sentences, models)
