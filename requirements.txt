@@ -18,3 +18,4 @@ tensorflow
 tf2crf
 transformers
 xgboost
+xlsxwriter

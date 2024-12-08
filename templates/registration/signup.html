@@ -1,0 +1,192 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up - Readerbench</title>
+
+  <!-- Include CSRF token in a meta tag for easy access in JavaScript -->
+  <meta name="csrf-token" content="{{ csrf_token }}">
+
+  <!-- Include Vue.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="{% static 'css/soft-design-system.css' %}" rel="stylesheet">
+  <link href="{% static 'css/nucleo-icons.css' %}" rel="stylesheet">
+  <link href="{% static 'css/nucleo-svg.css' %}" rel="stylesheet">
+
+  <style>
+    .body {
+      background-color: #f8f9fa;
+    }
+
+    .signup-form {
+      background-color: #f8f9fa;
+      overflow: hidden;
+      box-shadow: none;
+      padding: 0.3rem;
+    }
+
+    .signup-form-card {
+      position: relative;
+      background-color: #fff;
+      width: 100%;
+      box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
+    }
+
+    .signup-form::before {
+      content: "";
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(0deg, transparent, transparent, #4c00ff, #7300ff, #bf00ff);
+      animation: animate 5s linear infinite;
+      transform-origin: bottom right;
+    }
+
+    @keyframes animate {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    #app {
+      font-family: "Avenir", Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      color: #2c3e50;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="body page-header min-vh-100" id="app">
+    <div class="container">
+      <div class="row d-flex justify-content-around">
+        <div class="col-4 card signup-form">
+          <div class="signup-form-card card">
+            <div class="card-header" style="box-shadow: none">
+              <p class="mb-0">Fill out the form below to create an account</p>
+            </div>
+            <div class="card-body">
+              <form role="form" method="POST">
+                {% csrf_token %}
+                <!-- Username Field -->
+                <div class="mb-3">
+                  {{ form.username }}
+                  {% if form.username.errors %}
+                  <div class="text-danger">
+                    {% for error in form.username.errors %}
+                    <p>{{ error|striptags }}</p>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+                </div>
+
+                <!-- Email Field -->
+                <div class="mb-3">
+                  {{ form.email }}
+                  {% if form.email.errors %}
+                  <div class="text-danger">
+                    {% for error in form.email.errors %}
+                    <p>{{ error|striptags }}</p>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+                </div>
+
+                <!-- Password Field -->
+                <div class="mb-3">
+                  {{ form.password1 }}
+                  {% if form.password1.errors %}
+                  <div class="text-danger">
+                    {% for error in form.password1.errors %}
+                    <p>{{ error|striptags }}</p>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+                </div>
+
+                <!-- Confirm Password Field -->
+                <div class="mb-3">
+                  {{ form.password2 }}
+                  {% if form.password2.errors %}
+                  <div class="text-danger">
+                    {% for error in form.password2.errors %}
+                    <p>{{ error|striptags }}</p>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+                </div>
+
+                <!-- Sign Up Button -->
+                <div class="text-center">
+                  <button type="submit" class="btn btn-lg bg-gradient-primary btn-lg w-100 mt-4 mb-0">Sign Up</button>
+                </div>
+
+                {% if messages %}
+                <div class="text-center text-danger pt-2">
+                  <ul>
+                    {% for message in messages %}
+                    {{ message }}
+                    {% endfor %}
+                  </ul>
+                </div>
+                {% endif %}
+              </form>
+            </div>
+
+            <div class="card-footer text-center pt-0 px-lg-2 px-1">
+              <p class="mb-4 text-sm mx-auto">
+                Already have an account? <a href="{% if client_id %}{% url 'login' %}?client_id={{ client_id }}&redirect_uri={{redirect_uri}}{% else %}{% url 'login' %}{% endif %}"
+                  class="text-primary text-gradient font-weight-bold">Sign In</a>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-4 d-flex justify-content-center align-items-center">
+          <img class="w-80 h-80" src="{% static 'img/readerbench-small.svg' %}">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vue.js instance -->
+  <script>
+    new Vue({
+      el: '#app',
+      mounted() {
+        const fields = ['id_username', 'id_email', 'id_password1', 'id_password2'];
+        fields.forEach(fieldId => {
+          const field = document.getElementById(fieldId);
+          if (field) {
+            field.classList.add("form-control");
+          }
+
+          // Add placeholder attribute for accessibility
+          if (fieldId === 'id_username') {
+            field.setAttribute("placeholder", "Username");
+          } else if (fieldId === 'id_email') {
+            field.setAttribute("placeholder", "Email");
+          } else if (fieldId === 'id_password1') {
+            field.setAttribute("placeholder", "Password");
+          } else if (fieldId === 'id_password2') {
+            field.setAttribute("placeholder", "Confirm Password");
+          }
+        });
+      },
+      delimiters: ['[[', ']]']
+    });
+  </script>
+</body>
+
+</html>

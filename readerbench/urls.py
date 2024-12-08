@@ -28,7 +28,7 @@ from services.views import (add_keywords_job, add_offensive_job,
                             get_job, get_jobs, get_languages,
                             get_potential_answers, process_cscl,
                             restore_diacritics)
-
+from users.views import CustomLoginView, CustomSignUpView
 
 # Serializers
 class UserSerializer(serializers.ModelSerializer):
@@ -47,8 +47,9 @@ class CurrentUser(generics.RetrieveAPIView):
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('oauth2/', include('oauth2_provider.urls', namespace='oauth2_provider')),
+    path('accounts/login/', CustomLoginView.as_view(), name='login'),
+    path('accounts/signup/', CustomSignUpView.as_view(), name='signup'),
     path('users/me', CurrentUser.as_view()),
-    path('users/register', UserRegister.as_view()),
     path('services/cscl', process_cscl),
     path('pipeline/datasets/add', add_dataset),
     path('pipeline/datasets', get_datasets),
