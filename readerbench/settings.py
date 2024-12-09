@@ -66,6 +66,9 @@ CORS_ORIGIN_WHITELIST = [
 ]
 CSRF_TRUSTED_ORIGINS = ['https://readerbench.com']
 
+# Logout needs the cookie containing the sessionId 
+CORS_ALLOW_CREDENTIALS = True
+
 ROOT_URLCONF = 'readerbench.urls'
 
 import os

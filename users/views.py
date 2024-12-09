@@ -1,8 +1,10 @@
 from django.contrib.auth.views import LoginView
 from django.contrib import messages
-from django.contrib.auth import login
+from django.contrib.auth import login, logout
 from django.shortcuts import redirect
 from django.views.generic.edit import FormView
+from django.http import JsonResponse
+
 from .forms import CustomSignUpForm
 
 
@@ -83,3 +85,8 @@ class CustomSignUpView(FormView):
         redirect_uri = self.request.GET.get('redirect_uri')
         context['redirect_uri'] = redirect_uri
         return context
+    
+# removes session from database
+def logout_view(request):
+    logout(request)
+    return JsonResponse({"status": "success"})
