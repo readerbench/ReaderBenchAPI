@@ -84,7 +84,7 @@ def get_distractors_sense2vec(word, s2v):
     out = list(OrderedDict.fromkeys(output))
     return out
 
-def locate_dbpedia_uri(word, sentence):
+def locate_dbpedia_uri(word, sentence, models):
     service_url = "https://lookup.dbpedia.org/api/search"
     headers = {"Accept": "application/xml", "Accept-Language": "en"}
     params = {"query": word, "maxResults": 10}
@@ -96,7 +96,7 @@ def locate_dbpedia_uri(word, sentence):
     word_uri = [r.find("URI").text for r in results]
     words = [w.split('/')[-1].replace('_', ' ') for w in word_uri]
 
-    uri_losses = get_fitness_loss_no_finetune(sentence, words, word)
+    uri_losses = get_fitness_loss_no_finetune(sentence, words, word, models)
     best_uris = [(u, l) for u, l in zip(word_uri, uri_losses)]
     best_uris = sorted(best_uris, key=lambda x: x[1])
     print(best_uris[0])
@@ -114,7 +114,7 @@ def get_distractors_dbpedia2(input_uri):
     FILTER (?entity != <{0}>)
     ?entity rdfs:label ?label .
     FILTER(LANG(?label) = 'en')
-    }} GROUP BY ?entity ?label ORDER BY DESC(?commonTypeCount)
+    }} GROUP BY ?entity ?label ORDER BY DESC(?commonTypeCount) LIMIT 10
     """.format(input_uri)
 
     sparql = SPARQLWrapper(endpoint_url)
@@ -127,7 +127,7 @@ def get_distractors_dbpedia2(input_uri):
     type_counts = [result["commonTypeCount"]["value"] for result in results["results"]["bindings"]]
     labels = [result["label"]["value"] for result in results["results"]["bindings"]]
 
-    return labels[:10]
+    return labels
 
 def get_distractors_dbpedia3(input_uri):
     endpoint_url = "http://dbpedia.org/sparql"
@@ -174,7 +174,7 @@ def get_distractors_dbpedia4(input_uri):
     resources = [result["entity"]["value"] for result in results["results"]["bindings"]]
     labels = [result["label"]["value"] for result in results["results"]["bindings"]]
 
-    return labels[:10]
+    return labels
 
 def get_distractors_context(predicate, triplets):
     return [t['tail'] for t in triplets if t['type'] ==  predicate]
@@ -187,35 +187,35 @@ def generate_all_distractors(context, question, answer, answer_containing_senten
     blanked_sentence = answer_containing_sentence.replace(answer, '**blank**')
     #distractors += utils.generate_distractors_answer(context.replace(answer_containing_sentence, ''), question)
     distractors += generate_mlm_distractors(context.replace(answer_containing_sentence, blanked_sentence), answer, models)
+    # try:
+    #     input_uri = locate_dbpedia_uri(answer, blanked_sentence, models)
+    # except:
+    #     pass
+    # try:
+    #     distractors += get_distractors_dbpedia2(input_uri)[:10]
+    # except:
+    #     pass
+    # try:
+    #     distractors += get_distractors_dbpedia3(input_uri)[:10]
+    # except:
+    #     pass
+    # try:
+    #     distractors += get_distractors_dbpedia4(input_uri)[:10]
+    # except:
+    #     pass
     try:
-        input_uri = locate_dbpedia_uri(answer, blanked_sentence)
+        distractors += get_distractors_wordnet(answer)[:10]
     except:
         pass
     try:
-        distractors += get_distractors_dbpedia2(input_uri)
+        distractors += get_distractors_conceptnet(answer)[:10]
     except:
         pass
     try:
-        distractors += get_distractors_dbpedia3(input_uri)
+        distractors += get_distractors_sense2vec(answer, models["s2v"])[:10]
     except:
         pass
-    try:
-        distractors += get_distractors_dbpedia4(input_uri)
-    except:
-        pass
-    try:
-        distractors += get_distractors_wordnet(answer)
-    except:
-        pass
-    try:
-        distractors += get_distractors_conceptnet(answer)
-    except:
-        pass
-    try:
-        distractors += get_distractors_sense2vec(answer, models["s2v"])
-    except:
-        pass
-
+    distractors = list(set(distractors))
     answer_pos_tag = nltk.pos_tag([answer], tagset='universal')[0][1]
     distractors_pos_tags = nltk.pos_tag(distractors, tagset='universal')
     distractors = [dist for dist, pos in distractors_pos_tags if pos == answer_pos_tag]
@@ -240,8 +240,7 @@ def generate_all_distractors(context, question, answer, answer_containing_senten
     while len(final_distractors) < num_distractors and i < len(distractors_losses):
         first_sentences = [answer_containing_sentence.replace(answer, d[0]) for d in final_distractors]
         second_sentences = [answer_containing_sentence.replace(answer, distractors_losses[i][0]) for _ in final_distractors]
-        nli_labels = get_entailment(first_sentences, second_sentences, models)
-        nli_labels += get_entailment(second_sentences, first_sentences, models)
+        nli_labels = get_entailment(first_sentences + second_sentences, second_sentences + first_sentences, models)
         if 'entailment' not in nli_labels:
             final_distractors.append(distractors_losses[i])
         i += 1
@@ -273,9 +272,10 @@ def generate_distractors(text, answers):
                 break
         sent = sentences[i-1]
         distractors = generate_all_distractors(text, question, answer, sent, num_distractors=3, models=models)
-        result.append({
-            "question": question,
-            "answer": answer,
-            "distractors": [dist[0] for dist in distractors]
-        })
+        if len(distractors) == 3:
+            result.append({
+                "question": question,
+                "answer": answer,
+                "distractors": [dist[0] for dist in distractors]
+            })
     return result

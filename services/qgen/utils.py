@@ -10,17 +10,15 @@ def load_models():
     with tf.device('/GPU:0'):
         t5_tokenizer_qall = AutoTokenizer.from_pretrained('readerbench/QAll-Flan-large')
         t5_model_qall = TFT5ForConditionalGeneration.from_pretrained('readerbench/QAll-Flan-large')
+        deberta_model_nli = CrossEncoder('cross-encoder/nli-deberta-v3-base')
         
     with tf.device('/CPU:0'):
-        deberta_model_nli = CrossEncoder('cross-encoder/nli-deberta-v3-base', device="cpu")
-        roberta_tokenizer_mlm = AutoTokenizer.from_pretrained("roberta-base")
-        # roberta_model_mlm = TFRobertaForMaskedLM.from_pretrained("roberta-base")
         t5_model_xl = TFT5ForConditionalGeneration.from_pretrained('google/t5-v1_1-large')
         t5_tokenizer_xl = AutoTokenizer.from_pretrained('google/t5-v1_1-large')
+            
     return {
         "qall_tokenizer": t5_tokenizer_qall,
         "qall_model": t5_model_qall,
-        "nli_tokenizer": roberta_tokenizer_mlm,
         "nli_model": deberta_model_nli,
         "t5_tokenizer": t5_tokenizer_xl,
         "t5_model": t5_model_xl,
@@ -48,16 +46,17 @@ def generate_mlm_distractors(sentence, correct_answer, models):
     list_string = [sentence.replace('**blank**', f"<extra_id_0> (or {correct_answer})")]
     models["t5_tokenizer"].eos_token_id = models["t5_tokenizer"].vocab['<extra_id_1>']
     models["t5_tokenizer"].pad_token_id = models["t5_tokenizer"].eos_token_id
-    tokens = models["t5_tokenizer"](list_string, return_tensors='tf', max_length=512, padding='max_length', truncation=True)
+    tokens = models["t5_tokenizer"](list_string, return_tensors='tf', max_length=512, truncation=True)
     model_prediction = models["t5_model"].generate(return_dict_in_generate=True, output_scores=True, input_ids=tokens['input_ids'], \
-                                            attention_mask=tokens['attention_mask'], do_sample=True, num_return_sequences=16, \
+                                            attention_mask=tokens['attention_mask'], do_sample=True, num_return_sequences=32, \
                                             eos_token_id=models["t5_tokenizer"].vocab['<extra_id_1>'], max_new_tokens=32)
     decodes = models["t5_tokenizer"].batch_decode(model_prediction.sequences, skip_special_tokens=True)
     return decodes
 
-def get_fitness_loss_no_finetune(sentence, distractors, correct_answer):
-    t5_tokenizer_xl.eos_token_id = t5_tokenizer_xl.vocab['<extra_id_1>']
-    t5_tokenizer_xl.pad_token_id = t5_tokenizer_xl.eos_token_id
+def get_fitness_loss_no_finetune(sentence, distractors, correct_answer, models):
+    tokenizer = models["t5_tokenizer"]
+    tokenizer.eos_token_id = tokenizer.vocab['<extra_id_1>']
+    tokenizer.pad_token_id = tokenizer.eos_token_id
     input_string = [sentence.replace('**blank**', f"<extra_id_0>") for _ in distractors]
     labels_string = [f"<extra_id_0>{d}<extra_id_1>" for d in distractors]
 
@@ -66,18 +65,18 @@ def get_fitness_loss_no_finetune(sentence, distractors, correct_answer):
 
     for i in range(0, len(input_string), batch_size):
         end_interval = min(i+batch_size, len(input_string))
-        input_tokens = t5_tokenizer_xl(input_string[i:end_interval], return_tensors='tf', max_length=512, padding='max_length', truncation=True)
-        labels_tokens = t5_tokenizer_xl(labels_string[i:end_interval], return_tensors='tf', max_length=512, padding='max_length', truncation=True)
+        input_tokens = tokenizer(input_string[i:end_interval], return_tensors='tf', max_length=512, padding=True, truncation=True)
+        labels_tokens = tokenizer(labels_string[i:end_interval], return_tensors='tf', max_length=512, padding=True, truncation=True)
         labels = labels_tokens.input_ids
 
-        outputs = t5_model_xl(input_ids=input_tokens.input_ids, attention_mask=input_tokens.attention_mask, labels=labels)
+        outputs = models["t5_model"](input_ids=input_tokens.input_ids, attention_mask=input_tokens.attention_mask, labels=labels)
         logits = outputs.logits
         num_classes = logits.shape[2]
         labels_one_hot = tf.one_hot(labels, depth=num_classes)
         loss_fn = tf.keras.losses.CategoricalCrossentropy(from_logits=True)
 
         for logit, label_oh, label in zip(logits, labels_one_hot, labels):
-            num_elements = tf.math.count_nonzero(label != t5_tokenizer_xl.pad_token_id)
+            num_elements = tf.math.count_nonzero(label != tokenizer.pad_token_id)
             good_label_oh = label_oh[:num_elements]
             good_logit = logit[:num_elements]
             loss = loss_fn(
@@ -112,8 +111,8 @@ def get_answer_loss(context, question, answers, models):
 
     for i in tqdm(range(0, len(input_string), batch_size)):
         end_interval = min(i+batch_size, len(input_string))
-        input_tokens = models["qall_tokenizer"](input_string[i:end_interval], return_tensors='tf', max_length=512, padding='max_length', truncation=True)
-        labels_tokens = models["qall_tokenizer"](labels_string[i:end_interval], return_tensors='tf', max_length=512, padding='max_length', truncation=True)
+        input_tokens = models["qall_tokenizer"](input_string[i:end_interval], return_tensors='tf', max_length=512, padding=True, truncation=True)
+        labels_tokens = models["qall_tokenizer"](labels_string[i:end_interval], return_tensors='tf', max_length=512, padding=True, truncation=True)
         labels = labels_tokens.input_ids
 
         outputs = models["qall_model"](input_ids=input_tokens.input_ids, attention_mask=input_tokens.attention_mask, labels=labels)
@@ -142,8 +141,8 @@ def get_mlm_loss(entity, possibilities):
 
     for i in tqdm(range(0, len(input_string), batch_size)):
         end_interval = min(i+batch_size, len(input_string))
-        input_tokens = roberta_tokenizer_mlm(input_string[i:end_interval], return_tensors='tf', max_length=512, padding='max_length', truncation=True)
-        labels_tokens = roberta_tokenizer_mlm(labels_string[i:end_interval], return_tensors='tf', max_length=512, padding='max_length', truncation=True)
+        input_tokens = roberta_tokenizer_mlm(input_string[i:end_interval], return_tensors='tf', max_length=512, padding=True, truncation=True)
+        labels_tokens = roberta_tokenizer_mlm(labels_string[i:end_interval], return_tensors='tf', max_length=512, padding=True, truncation=True)
         labels = labels_tokens.input_ids
 
         outputs = roberta_model_mlm(input_ids=input_tokens.input_ids, attention_mask=input_tokens.attention_mask, labels=labels)

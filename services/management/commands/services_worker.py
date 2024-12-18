@@ -76,6 +76,7 @@ def job_wrapper(function, queue, **kwargs):
     try:
         result_obj["result"] = function(**kwargs)
     except Exception as ex:
+        print(ex)
         result_obj["result"] = None
     queue.put(result_obj)
 
@@ -142,4 +143,3 @@ class Command(BaseCommand):
 
             print(f"{JobTypeEnum(job.type_id).name} job {job.id} finished")
             
-

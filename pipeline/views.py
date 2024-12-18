@@ -20,9 +20,10 @@ from services.models import Job, Language
 
         
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def add_dataset(request):
     try:
+        user_id = request.user.id if request.user.id is not None else 1
         data = request.FILES.get("zipfile")
         targets = request.FILES.get("csvfile")
         lang_id = request.data["lang"]
@@ -32,7 +33,7 @@ def add_dataset(request):
         dataset = Dataset()
         dataset.name = name
         dataset.task = task
-        dataset.user_id = 1
+        dataset.user_id = user_id
         dataset.lang = lang
         dataset.save()
         os.makedirs(f"data/datasets/{dataset.pk}")
@@ -62,7 +63,7 @@ def add_dataset(request):
         return JsonResponse({'status': 'ERROR', 'error_code': 'add_operation_failed', 'message': 'The dataset could not be saved'}, status=500)
  
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def get_datasets(request):
     try:
         user_id = request.user.id if request.user.id is not None else 1
@@ -82,7 +83,7 @@ def get_datasets(request):
         return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error while retrieving datasets'}, status=500)
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def get_dataset(request, dataset_id):
     try:
         user_id = request.user.id if request.user.id is not None else 1
@@ -109,7 +110,7 @@ def get_dataset(request, dataset_id):
         return JsonResponse({'status': 'ERROR', 'error_code': 'get_operation_failed', 'message': 'Error while retrieving datasets'}, status=500)
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def delete_dataset(request, dataset_id):
     try:
         user_id = request.user.id if request.user.id is not None else 1
@@ -127,7 +128,7 @@ def delete_dataset(request, dataset_id):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def process_dataset(request, dataset_id):
     try:
         dataset = get_object_or_404(Dataset, id=dataset_id)
@@ -147,7 +148,7 @@ def process_dataset(request, dataset_id):
         return JsonResponse({'status': 'ERROR', 'error_code': 'add_job_operation_failed', 'message': 'Error processing dataset'}, status=500)
     
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def add_indices_job(request, dataset_id):
     try:
         dataset = get_object_or_404(Dataset, id=dataset_id)
@@ -167,7 +168,7 @@ def add_indices_job(request, dataset_id):
         return JsonResponse({'status': 'ERROR', 'error_code': 'add_job_operation_failed', 'message': 'Error processing dataset'}, status=500)
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def get_models(request):
     try:
         user_id = request.user.id if request.user.id is not None else 1
@@ -189,7 +190,7 @@ def get_models(request):
         return JsonResponse({'status': 'ERROR', 'error_code': 'get_models_operation_failed', 'message': 'Error returning models'}, status=500)
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def delete_model(request, model_id):
     try:
         user_id = request.user.id if request.user.id is not None else 1
@@ -206,7 +207,7 @@ def delete_model(request, model_id):
  
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def model_predict(request, model_id):
     try:
         user_id = request.user.id if request.user.id is not None else 1
@@ -264,7 +265,7 @@ def model_predict(request, model_id):
  
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def get_result(request, job_id):
     try:
         user_id = request.user.id if request.user.id is not None else 1
@@ -321,7 +322,7 @@ def get_result(request, job_id):
         return JsonResponse({'status': 'ERROR', 'error_code': 'get_result_operation_failed', 'message': 'Error returning results'}, status=500)
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def model_feature_importances(request, model_id):
     try:
         user_id = request.user.id if request.user.id is not None else 1
