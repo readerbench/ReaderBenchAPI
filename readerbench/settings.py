@@ -46,7 +46,7 @@ INSTALLED_APPS = [
 ]
 
 AUTH_USER_MODEL='users.User'
-LOGIN_URL='/admin/login/'
+LOGIN_URL='/accounts/login/'
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -66,12 +66,16 @@ CORS_ORIGIN_WHITELIST = [
 ]
 CSRF_TRUSTED_ORIGINS = ['https://readerbench.com']
 
+# Logout needs the cookie containing the sessionId 
+CORS_ALLOW_CREDENTIALS = True
+
 ROOT_URLCONF = 'readerbench.urls'
 
+import os
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        "DIRS": [BASE_DIR / "templates"],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -137,9 +141,19 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = "static"
+STATIC_ROOT = 'static'
+
+STATICFILES_DIRS = [
+    BASE_DIR / "assets"
+]
 
 FORCE_SCRIPT_NAME = '/api/v2'
+
+# settings for local development
+from os import getenv
+if getenv('DJANGO_ENV') == 'dev':
+    FORCE_SCRIPT_NAME = None
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 
@@ -148,7 +162,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 OAUTH2_PROVIDER = {
     'OAUTH2_BACKEND_CLASS': 'oauth2_provider.oauth2_backends.JSONOAuthLibCore',
     # this is the list of available scopes
-    'SCOPES': {'read': 'Read scope', 'write': 'Write scope', 'groups': 'Access to your groups'}
+    'SCOPES': {'read': 'Read scope', 'write': 'Write scope', 'groups': 'Access to your groups'},
+    'PKCE_REQUIRED': False
 }
 
 REST_FRAMEWORK = {

@@ -167,3 +167,5 @@ data
 models
 
 *.json
+
+run.ps1
