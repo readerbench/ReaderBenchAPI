@@ -4,6 +4,8 @@ from django.contrib.auth import login, logout
 from django.shortcuts import redirect
 from django.views.generic.edit import FormView
 from django.http import JsonResponse
+from django.urls import reverse
+
 
 from .forms import CustomSignUpForm
 
@@ -28,7 +30,7 @@ class CustomLoginView(LoginView):
         super().form_valid(form)
 
         authorization_url = (
-            "/oauth2/authorize/"
+            reverse('oauth2_provider:authorize') + 
             f"?client_id={client_id}"
             f"&response_type=code"
             f"&redirect_uri={redirect_uri}"
@@ -67,7 +69,7 @@ class CustomSignUpView(FormView):
         login(self.request, user)
 
         authorization_url = (
-            "/oauth2/authorize/"
+            reverse('oauth2_provider:authorize') + 
             f"?client_id={client_id}"
             f"&response_type=code"
             f"&redirect_uri={redirect_uri}"
