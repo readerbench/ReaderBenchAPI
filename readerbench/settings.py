@@ -163,7 +163,7 @@ OAUTH2_PROVIDER = {
     'OAUTH2_BACKEND_CLASS': 'oauth2_provider.oauth2_backends.JSONOAuthLibCore',
     # this is the list of available scopes
     'SCOPES': {'read': 'Read scope', 'write': 'Write scope', 'groups': 'Access to your groups'},
-    'PKCE_REQUIRED': False
+    'PKCE_REQUIRED': True
 }
 
 REST_FRAMEWORK = {
