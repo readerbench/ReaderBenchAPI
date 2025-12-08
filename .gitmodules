@@ -1,0 +1,4 @@
+[submodule "rb"]
+	path = rb
+	url = git@github.com:readerbench/ReaderBench.git
+	branch = api
