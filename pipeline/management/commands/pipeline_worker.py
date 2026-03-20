@@ -20,7 +20,6 @@ from services.models import Job
 
 def process(job: Job):
     import torch
-    import tensorflow as tf
     from rb import Lang
     from pipeline.tuning import hyperparameter_search
     from pipeline.parallel import build_features
@@ -84,7 +83,6 @@ def process(job: Job):
 
 def predict(job: Job):
     import torch
-    import tensorflow as tf
     from rb import Lang
     from pipeline.enums import ModelTypeEnum
     from pipeline.models import Model
@@ -149,7 +147,6 @@ def predict(job: Job):
 
 def compute_all_indices(job: Job):
     import torch
-    import tensorflow as tf
     from rb import Lang
     from pipeline.parallel import build_features
     

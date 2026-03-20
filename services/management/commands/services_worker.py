@@ -10,26 +10,32 @@ from services.enums import JobStatusEnum, JobTypeEnum
 from services.models import Job, Language
 
 def get_sentiment(text):
-    import tensorflow as tf
-    from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
+    import torch
+    import torch.nn.functional as F
+    from transformers import AutoTokenizer, AutoModelForSequenceClassification
     tokenizer = AutoTokenizer.from_pretrained("readerbench/ro-sentiment")
-    model = TFAutoModelForSequenceClassification.from_pretrained("readerbench/ro-sentiment", from_pt=True)
-    inputs = tokenizer(text, return_tensors="tf")
-    logits = model(**inputs).logits
-    scores = tf.nn.softmax(logits)[0].numpy().tolist()
+    model = AutoModelForSequenceClassification.from_pretrained("readerbench/ro-sentiment")
+    model.eval()
+    inputs = tokenizer(text, return_tensors="pt")
+    with torch.no_grad():
+        logits = model(**inputs).logits
+    scores = F.softmax(logits, dim=-1)[0].tolist()
     return {
         "Negative": scores[0],
         "Positive": scores[1]
     }
 
 def offensive_classification(text):
-    import tensorflow as tf
-    from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
+    import torch
+    import torch.nn.functional as F
+    from transformers import AutoTokenizer, AutoModelForSequenceClassification
     tokenizer = AutoTokenizer.from_pretrained("readerbench/ro-offense")
-    model = TFAutoModelForSequenceClassification.from_pretrained("readerbench/ro-offense", from_pt=True)
-    inputs = tokenizer(text, return_tensors="tf")
-    logits = model(**inputs).logits
-    scores = tf.nn.softmax(logits)[0].numpy().tolist()
+    model = AutoModelForSequenceClassification.from_pretrained("readerbench/ro-offense")
+    model.eval()
+    inputs = tokenizer(text, return_tensors="pt")
+    with torch.no_grad():
+        logits = model(**inputs).logits
+    scores = F.softmax(logits, dim=-1)[0].tolist()
     return {
         "None": scores[0],
         "Profanity": scores[1],
@@ -70,8 +76,6 @@ def extract_keywords(text, lang):
     return [keyword for keyword, score in keywords if score > 0.4]
 
 def job_wrapper(function, queue, **kwargs):
-    import torch
-    import tensorflow as tf
     result_obj = queue.get()
     try:
         result_obj["result"] = function(**kwargs)

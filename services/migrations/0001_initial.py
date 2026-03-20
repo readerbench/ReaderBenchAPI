@@ -7,10 +7,11 @@ import django.db.models.deletion
 from services.models import Language
 
 def init_languages(apps, schema_editor):
-    from rb import Lang
-    for lang in Lang:
+    # Hardcoded to avoid importing rb (which triggers heavy ML dependencies)
+    # Keep in sync with rb.core.lang.Lang
+    for label in ['EN', 'FR', 'RO', 'ES', 'DE', 'RU', 'IT', 'NL', 'PT']:
         obj = Language()
-        obj.label = lang.name
+        obj.label = label
         obj.save()
 
 def delete_languages(apps, schema_editor):

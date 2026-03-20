@@ -1,5 +1,3 @@
-import tensorflow as tf
-
 from transformers import BertTokenizerFast
 import spacy
 import benepar

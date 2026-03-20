@@ -4,7 +4,7 @@ import time
 from typing import Dict, List
 
 import numpy as np
-import tensorflow as tf
+import torch
 from pipeline.enums import ModelTypeEnum
 from pipeline.models import Dataset, Model
 from pipeline.preprocessing import generator
@@ -29,7 +29,7 @@ def hyperparameter_search(dataset: Dataset, job: Job, tasks: List[Task], feature
     lang = Lang[dataset.lang.label]
     # for predictor_type in ModelTypeEnum:
     for predictor_type in [ModelTypeEnum.TRANSFORMER]:
-        print(tf.config.list_physical_devices("GPU"))
+        print(f"CUDA available: {torch.cuda.is_available()}, devices: {torch.cuda.device_count()}")
         predictor = predictor_type.predictor()(lang, tasks)
         predictor.load_data(texts, features, targets)
         best_result = predictor.search_config()
@@ -45,5 +45,5 @@ def hyperparameter_search(dataset: Dataset, job: Job, tasks: List[Task], feature
         obj.save()
         predictor.save(obj)
         del predictor
-        tf.keras.backend.clear_session()
+        torch.cuda.empty_cache()
         

@@ -6,11 +6,12 @@ import django.db.models.deletion
 
 
 def init_model_types(apps, schema_editor):
-    from pipeline.enums import ModelTypeEnum
+    # Hardcoded to avoid importing pipeline.enums (which triggers heavy ML dependencies)
+    # Keep in sync with pipeline.enums.ModelTypeEnum
     from pipeline.models import ModelType
-    for mt in ModelTypeEnum:
+    for label in ['TRANSFORMER', 'XGBOOST']:
         obj = ModelType()
-        obj.label = mt.name
+        obj.label = label
         obj.save()
     
 def delete_model_types(apps, schema_editor):

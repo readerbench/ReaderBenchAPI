@@ -1,10 +1,10 @@
-import tensorflow as tf
-from transformers import TFBertModel
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from transformers import BertModel
 import random
 from collections import deque
 from services.qgen import environment
-# import warnings
-# warnings.filterwarnings('ignore')
 
 cont = """
 Alexander Graham Bell was born in Edinburgh, Scotland on March 3, 1847. When he was only eleven years old, he invented a machine that could clean wheat. Graham studied anatomy and physiology at the University of London, but moved with his family to Quebec, Canada in 1870.
@@ -12,124 +12,157 @@ Bell soon moved to Boston, Massachusetts. In 1871, he began working with deaf pe
 Alexander Graham Bell died August 2, 1922. On the day of his burial, in honor of Bell, all telephone services in the United States were stopped for one minute.
 """
 
-def lambda_select_actions(last_hidden_state: tf.Tensor, actions: tf.Tensor, num_actions: int) -> tf.Tensor:
-    l = tf.shape(last_hidden_state)[1]  # sequence length (number of tokens)
-    b = tf.shape(last_hidden_state)[0]  # batch size
 
-    # Range tensor for mask
-    range = tf.reshape(tf.range(l), [1, 1, l])
-    range = tf.tile(range, [b, num_actions, 1])
+def lambda_select_actions(last_hidden_state: torch.Tensor, actions: torch.Tensor, num_actions: int) -> torch.Tensor:
+    """
+    Masked mean pooling per action range.
 
-    # Action ranges
-    a_min = tf.expand_dims(actions[:, :, 0], axis=-1)
-    a_max = tf.expand_dims(actions[:, :, 1], axis=-1)
+    Args:
+        last_hidden_state: (batch, seq_len, 768)
+        actions: (batch, num_actions, 2)  where [..., 0] = start, [..., 1] = end (inclusive)
+        num_actions: int
 
-    # Create mask
-    y_ge_min = tf.greater_equal(range, a_min)
-    y_le_max = tf.less_equal(range, a_max)
-    mask_actions = tf.logical_and(y_ge_min, y_le_max)
+    Returns:
+        select_actions: (batch, num_actions, 768)
+    """
+    b = last_hidden_state.size(0)
+    l = last_hidden_state.size(1)
 
-    # Reshape mask for average pooling
-    reshaped_mask = tf.reshape(mask_actions, [-1, l])
-    reshaped_lhs = tf.reshape(last_hidden_state, [b, 1, l, 768])
-    tiled_lhs = tf.tile(reshaped_lhs, [1, num_actions, 1, 1])
-    reshaped_tiled_lhs = tf.reshape(tiled_lhs, [-1, l, 768])
-    pool = tf.keras.layers.GlobalAveragePooling1D()(reshaped_tiled_lhs, reshaped_mask)
+    # positions: (1, 1, l)
+    positions = torch.arange(l, device=last_hidden_state.device).reshape(1, 1, l)
+    # tile to (b, num_actions, l)
+    positions = positions.expand(b, num_actions, l)
 
-    select_actions = tf.reshape(pool, [-1, num_actions, 768])
+    # a_min, a_max: (b, num_actions, 1)
+    a_min = actions[:, :, 0].unsqueeze(-1)  # (b, num_actions, 1)
+    a_max = actions[:, :, 1].unsqueeze(-1)  # (b, num_actions, 1)
+
+    # mask_actions: (b, num_actions, l)
+    mask_actions = (positions >= a_min) & (positions <= a_max)
+
+    # reshaped_mask: (b * num_actions, l)
+    reshaped_mask = mask_actions.reshape(-1, l)
+
+    # last_hidden_state: (b, l, 768) -> tile to (b, num_actions, l, 768)
+    reshaped_lhs = last_hidden_state.unsqueeze(1).expand(b, num_actions, l, 768)
+    # (b * num_actions, l, 768)
+    reshaped_tiled_lhs = reshaped_lhs.reshape(-1, l, 768)
+
+    # Masked mean pooling: sum over masked positions, divide by count
+    # reshaped_mask: (b * num_actions, l) -> (b * num_actions, l, 1)
+    mask_float = reshaped_mask.unsqueeze(-1).float()
+    masked_sum = (reshaped_tiled_lhs * mask_float).sum(dim=1)   # (b * num_actions, 768)
+    mask_count = mask_float.sum(dim=1).clamp(min=1e-9)           # (b * num_actions, 1)
+    pool = masked_sum / mask_count                                # (b * num_actions, 768)
+
+    # (b, num_actions, 768)
+    select_actions = pool.reshape(b, num_actions, 768)
     return select_actions
 
 
-def create_model(num_actions: int = 4) -> tf.keras.Model:
-    bert_input1 = tf.keras.Input(
-        shape=(None,), dtype="int32", name="input_ids")
-    bert_input2 = tf.keras.Input(
-        shape=(None,), dtype="int32", name="attention_mask")
-    actions = tf.keras.Input(shape=(num_actions, 2),
-                             dtype="int32", name="actions")
-    subtree = tf.keras.Input(shape=(num_actions, 1),
-                             dtype="float32", name="subtree")
-    pos = tf.keras.Input(shape=(num_actions, 1), dtype="int32", name="pos")
-    allow_stop = tf.keras.Input(shape=(1), dtype="bool", name="allow_stop")
-    bert_model = TFBertModel.from_pretrained(environment.model_name)
+class DQNModel(nn.Module):
+    def __init__(self, num_actions: int = 4):
+        super().__init__()
+        self.num_actions = num_actions
 
-    bert_model.trainable = True
-    base_outputs = bert_model.bert(
-        {"input_ids": bert_input1, "attention_mask": bert_input2})
-    last_hidden_state = base_outputs.last_hidden_state
+        self.bert = BertModel.from_pretrained(environment.model_name)
 
-    select_actions = lambda_select_actions(
-        last_hidden_state, actions, num_actions)
-    stay_actions, move_actions = tf.split(
-        select_actions, [1, num_actions-1], axis=1)
+        self.pos_embedding = nn.Embedding(len(environment.pos_all_tags), 8)
 
-    stay_subtree, move_subtree = tf.split(subtree, [1, num_actions-1], axis=1)
+        # Shared projection layer (768 -> 32)
+        self.projection_layer = nn.Linear(768, 32)
 
-    pos_embedding = tf.keras.layers.Embedding(
-        len(environment.pos_all_tags), 8, name="pos_embedding")(pos)
-    reshaped_embedding = tf.reshape(
-        pos_embedding, shape=(-1, num_actions, 8))  # flattening
-    stay_pos_embedding, move_pos_embedding = tf.split(
-        reshaped_embedding, [1, num_actions-1], axis=1)
+        # Can-stop branch (move: num_actions-1 actions)
+        # Input: 32 (projection) + 1 (subtree) + 8 (pos_emb) = 41
+        self.move_dense2 = nn.Linear(32 + 1 + 8, 16)
+        self.move_output = nn.Linear(16, 1)
 
-    projection_layer = tf.keras.layers.Dense(
-        32, activation='relu', name='projection_layer')
+        # Can-stop branch (stay: 1 action)
+        self.stay_dense2 = nn.Linear(32 + 1 + 8, 16)
+        self.stay_output = nn.Linear(16, 1)
 
-    # Can stop branch
-    move_dense1 = projection_layer(move_actions)
-    move_dense2 = tf.keras.layers.Dense(16, activation='relu', name='move_dense2')(
-        tf.concat([move_dense1, move_subtree, move_pos_embedding], axis=2))
-    move_output = tf.keras.layers.Dense(1, name='move_output')(move_dense2)
+        # Cannot-stop branch (all num_actions actions)
+        # Input: 32 (projection) + 1 (subtree) + 8 (pos_emb) = 41
+        self.dense2 = nn.Linear(32 + 1 + 8, 16)
+        self.dense_output = nn.Linear(16, 1)
 
-    stay_dense1 = projection_layer(stay_actions)
-    stay_dense2 = tf.keras.layers.Dense(16, activation='relu', name='stay_dense2')(
-        tf.concat([stay_dense1, stay_subtree, stay_pos_embedding], axis=2))
-    stay_output = tf.keras.layers.Dense(1, name='stay_output')(stay_dense2)
+    def forward(
+        self,
+        input_ids: torch.Tensor,       # (b, seq_len)
+        attention_mask: torch.Tensor,  # (b, seq_len)
+        actions: torch.Tensor,         # (b, num_actions, 2)
+        pos: torch.Tensor,             # (b, num_actions, 1)
+        subtree: torch.Tensor,         # (b, num_actions, 1)
+        allow_stop: torch.Tensor,      # (b,) or (b, 1), bool
+    ) -> torch.Tensor:
+        num_actions = self.num_actions
 
-    move_stay_flattened_output = tf.keras.layers.Flatten(
-        name='move_stay_flattened_output')(tf.concat([stay_output, move_output], axis=1))
+        # BERT encoding
+        bert_out = self.bert(input_ids=input_ids, attention_mask=attention_mask)
+        last_hidden_state = bert_out.last_hidden_state  # (b, seq_len, 768)
 
-    # Cannot stop branch
-    dense1 = projection_layer(select_actions)
-    dense2 = tf.keras.layers.Dense(16, activation='relu', name='dense2')(
-        tf.concat([dense1, subtree, reshaped_embedding], axis=2))
-    dense_output = tf.keras.layers.Dense(1, name='dense_output')(dense2)
+        # Masked mean pooling per action range -> (b, num_actions, 768)
+        select_actions = lambda_select_actions(last_hidden_state, actions, num_actions)
 
-    flattened_output = tf.keras.layers.Flatten(
-        name='flattened_output')(dense_output)
+        # Split stay (1) and move (num_actions-1)
+        stay_actions = select_actions[:, :1, :]           # (b, 1, 768)
+        move_actions = select_actions[:, 1:, :]           # (b, num_actions-1, 768)
 
-    # Output
-    output = tf.where(allow_stop, move_stay_flattened_output, flattened_output)
+        stay_subtree = subtree[:, :1, :]                  # (b, 1, 1)
+        move_subtree = subtree[:, 1:, :]                  # (b, num_actions-1, 1)
 
-    model = tf.keras.Model(
-        inputs={
-            "input_ids": bert_input1,
-            "attention_mask": bert_input2,
-            "actions": actions,
-            "pos": pos,
-            "subtree": subtree,
-            "allow_stop": allow_stop,
-        },
-        outputs=output,
-    )
-    return model
+        # POS embeddings: pos is (b, num_actions, 1)
+        pos_emb = self.pos_embedding(pos.squeeze(-1))     # (b, num_actions, 8)
+        stay_pos_emb = pos_emb[:, :1, :]                  # (b, 1, 8)
+        move_pos_emb = pos_emb[:, 1:, :]                  # (b, num_actions-1, 8)
+
+        # --- Can-stop branch ---
+        move_dense1 = F.relu(self.projection_layer(move_actions))   # (b, num_actions-1, 32)
+        move_in2 = torch.cat([move_dense1, move_subtree, move_pos_emb], dim=2)  # (b, num_actions-1, 41)
+        move_dense2 = F.relu(self.move_dense2(move_in2))            # (b, num_actions-1, 16)
+        move_out = self.move_output(move_dense2)                     # (b, num_actions-1, 1)
+
+        stay_dense1 = F.relu(self.projection_layer(stay_actions))   # (b, 1, 32)
+        stay_in2 = torch.cat([stay_dense1, stay_subtree, stay_pos_emb], dim=2)  # (b, 1, 41)
+        stay_dense2 = F.relu(self.stay_dense2(stay_in2))            # (b, 1, 16)
+        stay_out = self.stay_output(stay_dense2)                     # (b, 1, 1)
+
+        # Concatenate stay + move and flatten -> (b, num_actions)
+        move_stay = torch.cat([stay_out, move_out], dim=1)           # (b, num_actions, 1)
+        move_stay_flat = move_stay.squeeze(-1)                        # (b, num_actions)
+
+        # --- Cannot-stop branch ---
+        dense1 = F.relu(self.projection_layer(select_actions))       # (b, num_actions, 32)
+        dense_in2 = torch.cat([dense1, subtree, pos_emb], dim=2)     # (b, num_actions, 41)
+        dense2 = F.relu(self.dense2(dense_in2))                      # (b, num_actions, 16)
+        dense_out = self.dense_output(dense2)                         # (b, num_actions, 1)
+        flat_out = dense_out.squeeze(-1)                              # (b, num_actions)
+
+        # allow_stop branching: (b,) bool
+        if allow_stop.dim() > 1:
+            allow_stop = allow_stop.squeeze(-1)                       # (b,)
+        # Expand to (b, num_actions) for torch.where
+        allow_stop_expanded = allow_stop.unsqueeze(-1).expand_as(move_stay_flat)
+
+        output = torch.where(allow_stop_expanded, move_stay_flat, flat_out)  # (b, num_actions)
+        return output
+
 
 class DQAgent:
     def __init__(self):
         self.memory = deque(maxlen=1000)
-        self.optimizer = tf.keras.optimizers.legacy.Adam(
-            learning_rate=1e-05, epsilon=1e-08)
-        self.loss = tf.keras.losses.MeanSquaredError()
         self.gamma = 0.95
         self.epsilon = 1.0
         self.epsilon_min = 0.1
         self.epsilon_decay = 0.9999
-        self.model = create_model(num_actions=environment.MAX_ACTIONS)
-        self.target_model = create_model(num_actions=environment.MAX_ACTIONS)
+        self.model = DQNModel(num_actions=environment.MAX_ACTIONS)
+        self.target_model = DQNModel(num_actions=environment.MAX_ACTIONS)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-5, eps=1e-8)
+        self.loss_fn = nn.MSELoss()
         self.update_target_model()
 
     def update_target_model(self):
-        self.target_model.set_weights(self.model.get_weights())
+        self.target_model.load_state_dict(self.model.state_dict())
 
     def get_distribution(self, state: environment.Node):
         all_nodes = state.subtree
@@ -147,27 +180,37 @@ class DQAgent:
             return index, None, None
         allowed_actions = len([x for x in state.actions if x is not None])
         a = [1] * len(state.token_ids)
-        act_values = self.model.predict(
-            {
-                "input_ids": tf.constant([state.token_ids]),
-                "attention_mask": tf.constant([a]),
-                "actions": tf.constant([state.reshape_actions()]),
-                "pos": tf.constant([state.reshape_pos()], dtype=tf.int32),
-                "subtree": tf.constant([state.reshape_subtree()], dtype=tf.float32),
-                "allow_stop": tf.constant([state.allow_stop], dtype=tf.bool),
-            },
-            verbose=0,
-        )
-        
-        distributions = tf.nn.softmax(act_values[0][:allowed_actions])
-        choose = random.choices(list(range(0, allowed_actions)), weights=distributions, k=1)[0]
-        return choose, distributions, act_values[0][choose]
+
+        input_ids = torch.tensor([state.token_ids], dtype=torch.long)
+        attention_mask = torch.tensor([a], dtype=torch.long)
+        actions = torch.tensor([state.reshape_actions()], dtype=torch.long)
+        pos = torch.tensor([state.reshape_pos()], dtype=torch.long)
+        subtree = torch.tensor([state.reshape_subtree()], dtype=torch.float)
+        allow_stop = torch.tensor([state.allow_stop], dtype=torch.bool)
+
+        self.model.eval()
+        with torch.no_grad():
+            act_values = self.model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                actions=actions,
+                pos=pos,
+                subtree=subtree,
+                allow_stop=allow_stop,
+            )  # (1, num_actions)
+
+        act_values_np = act_values[0]  # (num_actions,)
+        distributions = torch.softmax(act_values_np[:allowed_actions], dim=0)
+        choose = random.choices(list(range(0, allowed_actions)), weights=distributions.tolist(), k=1)[0]
+        return choose, distributions, act_values_np[choose]
 
     def load(self, name):
-        self.model.load_weights(name)
+        state_dict = torch.load(name, map_location="cpu")
+        self.model.load_state_dict(state_dict)
 
     def save(self, name):
-        self.model.save_weights(name)
+        torch.save(self.model.state_dict(), name)
+
 
 def get_largest_indexes(lst, choices):
     indexes = sorted(range(len(lst)), key=lambda i: lst[i], reverse=True)
