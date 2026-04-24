@@ -11,7 +11,7 @@ nltk==3.9.3
 optuna==4.8.0
 psycopg2-binary==2.9.11
 pyarrow==23.0.1
-ray[tune]==2.54.0
+ray[tune]==2.55.0
 scikit-learn==1.8.0
 sense2vec==2.0.2
 sentence-transformers==5.3.0
