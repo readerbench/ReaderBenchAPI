@@ -39,8 +39,8 @@ def process_conv(file, lang):
     contr_edges = []
     for u, v, w in conv.graph.filtered_graph.edges.data('weight', default=None):
         if isinstance(u, Contribution) and isinstance(v, Contribution) and u.index < v.index:
-            contr_in[u] += w
-            contr_out[v] += w
+            contr_in[v] += w
+            contr_out[u] += w
             contr_edges.append({
                 "source": u.index, 
                 "target": v.index,
